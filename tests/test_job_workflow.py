@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from main import JobCrew
+from job_tools.greenhouse import MAX_GREENHOUSE_SUMMARIES
 
 
 class JobWorkflowTests(unittest.TestCase):
@@ -49,9 +50,9 @@ class JobWorkflowTests(unittest.TestCase):
                 "main.Crew.kickoff",
                 side_effect=["I cannot choose a job", "No further action is needed."],
             ):
-                output = JobCrew("software engineer", model="qwen2.5:1.5b").run()
+                output = JobCrew("software engineer", "nyc", model="qwen2.5:1.5b").run()
 
-        search.search_idealist.run.assert_called_once_with("software engineer")
+        search.search_idealist.run.assert_called_once_with("software engineer", "nyc")
         self.scrape_greenhouse.assert_called_once_with("stripe")
         browser.scrape_idealist_job_details.run.assert_called_once_with(candidates[0]["link"])
         self.assertIn(candidates[0]["link"], output)
@@ -68,13 +69,23 @@ class JobWorkflowTests(unittest.TestCase):
         with patch("main.SearchTools") as search, patch("main.BrowserTools") as browser:
             search.search_idealist.run.return_value = "[]"
             with patch("main.Crew") as crew:
-                output = JobCrew("nonexistent role").run()
+                output = JobCrew("nonexistent role", "nyc").run()
 
         self.assertIn("No unprocessed Idealist jobs", output)
         self.scrape_greenhouse.assert_called_once_with("stripe")
         browser.scrape_idealist_job_details.run.assert_not_called()
         crew.assert_not_called()
         self.record_ai_result.assert_not_called()
+
+    def test_remote_choice_reaches_both_sources(self):
+        with patch("main.greenhouse_candidates", return_value=[]) as candidates, \
+             patch("main.SearchTools") as search:
+            self.scrape_greenhouse.return_value = [{"title": "Example"}]
+            search.search_idealist.run.return_value = "[]"
+            JobCrew("data analyst", "remote").run()
+
+        candidates.assert_called_once_with([{"title": "Example"}], "data analyst", "Stripe", "remote")
+        search.search_idealist.run.assert_called_once_with("data analyst", "remote")
 
     def test_scraped_posting_is_returned_if_organizer_fails(self):
         candidate = {
@@ -85,7 +96,7 @@ class JobWorkflowTests(unittest.TestCase):
             search.search_idealist.run.return_value = json.dumps([candidate])
             browser.scrape_idealist_job_details.run.return_value = "Actual job details"
             with patch("main.Crew.kickoff", side_effect=RuntimeError("model failed")):
-                output = JobCrew("software engineer").run()
+                output = JobCrew("software engineer", "nyc").run()
 
         self.assertIn(candidate["link"], output)
         self.assertIn("Actual job details", output)
@@ -109,7 +120,7 @@ class JobWorkflowTests(unittest.TestCase):
             search.search_idealist.run.return_value = json.dumps([candidate])
             browser.scrape_idealist_job_details.run.return_value = "Actual job details"
             with patch("main.Crew.kickoff", return_value=decision):
-                output = JobCrew("software engineer").run()
+                output = JobCrew("software engineer", "nyc").run()
 
         self.assertIn("No summary needed for Software Engineer (Early Career)", output)
         self.assertIn("already separates duties", output)
@@ -129,7 +140,7 @@ class JobWorkflowTests(unittest.TestCase):
             search.search_idealist.run.return_value = json.dumps([candidate])
             browser.scrape_idealist_job_details.run.return_value = "Build dashboards and reports."
             with patch("main.Crew.kickoff", return_value=summary):
-                output = JobCrew("data analyst", model="qwen2.5:7b").run()
+                output = JobCrew("data analyst", "nyc", model="qwen2.5:7b").run()
 
         self.assertIn(summary, output)
         self.record_ai_result.assert_called_once_with(
@@ -145,7 +156,7 @@ class JobWorkflowTests(unittest.TestCase):
             search.search_idealist.run.return_value = json.dumps([candidate])
             browser.scrape_idealist_job_details.run.return_value = "Actual job details"
             with patch("main.Crew.kickoff", return_value="NO_SUMMARY_NEEDED: Software Engineer (Early Career)"):
-                output = JobCrew("software engineer").run()
+                output = JobCrew("software engineer", "nyc").run()
 
         self.assertIn("did not produce a job-specific summary", output)
         self.assertNotIn("NO_SUMMARY_NEEDED:", output)
@@ -167,7 +178,7 @@ class JobWorkflowTests(unittest.TestCase):
              patch("main.BrowserTools") as browser, \
              patch("main.Crew.kickoff", return_value="SUMMARY: Software Engineer\nBuild services."):
             search.search_idealist.run.return_value = "[]"
-            output = JobCrew("software engineer").run()
+            output = JobCrew("software engineer", "nyc").run()
 
         save.assert_called_once_with(job, board_token="stripe")
         self.record_ai_result.assert_called_once_with(
@@ -203,7 +214,7 @@ class JobWorkflowTests(unittest.TestCase):
             return jobs[token]
 
         with patch("main.load_greenhouse_boards", return_value=boards), \
-             patch("main.greenhouse_candidates", side_effect=lambda items, query, company: [
+             patch("main.greenhouse_candidates", side_effect=lambda items, query, company, location: [
                  {"text": f"{items[0]['title']}\n{company}\nRemote", "link": items[0]["absolute_url"],
                   "job": items[0], "match_type": "title"}
              ]), \
@@ -212,7 +223,7 @@ class JobWorkflowTests(unittest.TestCase):
              patch("main.Crew.kickoff", return_value="No summary"):
             self.scrape_greenhouse.side_effect = fetch
             search.search_idealist.run.return_value = "[]"
-            JobCrew("software engineer").run()
+            JobCrew("software engineer", "nyc").run()
 
         self.assertEqual([call.args[0] for call in self.scrape_greenhouse.call_args_list],
                          ["airbnb", "figma", "github"])
@@ -220,7 +231,7 @@ class JobWorkflowTests(unittest.TestCase):
                          ["figma", "github"])
         self.assertEqual(self.record_ai_result.call_count, 2)
 
-    def test_greenhouse_ai_summary_attempts_stop_at_five(self):
+    def test_greenhouse_ai_summary_attempts_respect_cap(self):
         candidates = [
             {
                 "text": f"Engineer {number}\nStripe\nRemote",
@@ -234,12 +245,12 @@ class JobWorkflowTests(unittest.TestCase):
              patch("main.SearchTools") as search, \
              patch("main.Crew.kickoff", return_value="No summary") as kickoff:
             search.search_idealist.run.return_value = "[]"
-            output = JobCrew("engineer").run()
+            output = JobCrew("engineer", "nyc").run()
 
-        self.assertEqual(save.call_count, 5)
-        self.assertEqual(kickoff.call_count, 5)
-        self.assertEqual(self.record_ai_result.call_count, 5)
-        self.assertNotIn("gh_jid=6", output)
+        self.assertEqual(save.call_count, MAX_GREENHOUSE_SUMMARIES)
+        self.assertEqual(kickoff.call_count, MAX_GREENHOUSE_SUMMARIES)
+        self.assertEqual(self.record_ai_result.call_count, MAX_GREENHOUSE_SUMMARIES)
+        self.assertNotIn(f"gh_jid={MAX_GREENHOUSE_SUMMARIES + 1}", output)
         self.assertIn("No unprocessed Idealist jobs", output)
 
 

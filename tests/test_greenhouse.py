@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from job_tools import job_history, prospects
-from job_tools.greenhouse import greenhouse_candidates, load_greenhouse_boards, save_greenhouse_job, scrape_greenhouse
+from job_tools.greenhouse import MAX_GREENHOUSE_SUMMARIES, greenhouse_candidates, load_greenhouse_boards, save_greenhouse_job, scrape_greenhouse
 
 
 class GreenhouseTests(unittest.TestCase):
@@ -41,6 +41,23 @@ class GreenhouseTests(unittest.TestCase):
             with patch.object(job_history, "HISTORY_DB_PATH", Path(directory) / "history.sqlite3"):
                 candidate = greenhouse_candidates([job], "software engineer", "Figma")[0]
         self.assertEqual(candidate["text"], "Software Engineer\nFigma\nRemote")
+
+    def test_location_filter_runs_before_candidate_ranking(self):
+        jobs = [
+            {
+                "id": number, "title": "Data Analyst",
+                "absolute_url": f"https://stripe.com/jobs/search?gh_jid={number}",
+                "location": {"name": label}, "content": "<p>Analyze data.</p>",
+            }
+            for number, label in enumerate(("San Francisco, CA", "New York, NY",
+                                            "Remote - USA", "Remote - India"), 1)
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(job_history, "HISTORY_DB_PATH", Path(directory) / "history.sqlite3"):
+                nyc = greenhouse_candidates(jobs, "data analyst", location="nyc")
+                remote = greenhouse_candidates(jobs, "data analyst", location="remote")
+        self.assertEqual([candidate["job"]["id"] for candidate in nyc], [2])
+        self.assertEqual([candidate["job"]["id"] for candidate in remote], [3])
 
     def test_fetches_stripe_jobs_and_prints_success(self):
         jobs = [{"title": "Engineer", "content": "Full description"}]
@@ -127,7 +144,7 @@ class GreenhouseTests(unittest.TestCase):
                     [description_match],
                 )
 
-    def test_candidate_search_caps_greenhouse_results_at_five(self):
+    def test_candidate_search_respects_greenhouse_summary_cap(self):
         jobs = [
             {
                 "id": number,
@@ -141,7 +158,10 @@ class GreenhouseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             with patch.object(job_history, "HISTORY_DB_PATH", Path(directory) / "history.sqlite3"):
                 candidates = greenhouse_candidates(jobs, "software engineer")
-        self.assertEqual([candidate["job"]["id"] for candidate in candidates], [1, 2, 3, 4, 5])
+        self.assertEqual(
+            [candidate["job"]["id"] for candidate in candidates],
+            list(range(1, MAX_GREENHOUSE_SUMMARIES + 1)),
+        )
 
 
 if __name__ == "__main__":

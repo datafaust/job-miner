@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import requests
 import traceback
 from datetime import datetime, timezone
@@ -7,17 +8,29 @@ from itertools import zip_longest
 from pathlib import Path
 
 from crewai import Crew
-from textwrap import dedent
+from dotenv import load_dotenv
 from job_agents import JobAgents
 from job_tasks import JobTasks
 from job_tools.browser_tools import BrowserTools
 from job_tools.greenhouse import MAX_GREENHOUSE_SUMMARIES, greenhouse_candidates, load_greenhouse_boards, save_greenhouse_job, scrape_greenhouse
 from job_tools.job_history import job_key, record_ai_result, saved_ai_results
+from job_tools.location import normalize_search_location
 from job_tools.search_tools import SearchTools
 
 PROJECT_DIR = Path(__file__).resolve().parent
 CREWAI_LOG_PATH = PROJECT_DIR / "crewai_log.txt"
 SUMMARY_LOG_PATH = PROJECT_DIR / "summary_attempts.jsonl"
+
+
+def resolve_search_inputs(keywords, location):
+  """Use environment defaults for blank prompts, then require both values."""
+  keywords = keywords.strip() or os.getenv("JOB_SEARCH_KEYWORDS", "").strip()
+  location = location.strip() or os.getenv("JOB_SEARCH_LOCATION", "").strip()
+  if not keywords:
+    raise ValueError("Enter job keywords or set JOB_SEARCH_KEYWORDS")
+  if not location:
+    raise ValueError("Enter a location or set JOB_SEARCH_LOCATION")
+  return keywords, normalize_search_location(location)
 
 
 def log_summary_attempt(url, title, model, raw_output, status, reason, error=None):
@@ -42,8 +55,9 @@ def log_summary_attempt(url, title, model, raw_output, status, reason, error=Non
 
 class JobCrew:
 
-  def __init__(self, job_ask, model="openhermes"):
+  def __init__(self, job_ask, location, model="openhermes"):
     self.job_ask = job_ask
+    self.location = location
     self.model = model
 
   def run(self):
@@ -58,7 +72,7 @@ class JobCrew:
       except (requests.RequestException, ValueError) as error:
         print(f"Greenhouse scrape failed for {board['company']} ({board['token']}): {error}")
         continue
-      matches = greenhouse_candidates(jobs, self.job_ask, board["company"])
+      matches = greenhouse_candidates(jobs, self.job_ask, board["company"], self.location)
       candidate_groups.append([(match, board["token"]) for match in matches])
 
     selected_jobs = []
@@ -94,7 +108,7 @@ class JobCrew:
     else:
       print("No matching unprocessed Greenhouse jobs found.")
 
-    search_results = json.loads(SearchTools.search_idealist.run(self.job_ask))
+    search_results = json.loads(SearchTools.search_idealist.run(self.job_ask, self.location))
     if not search_results:
       results.append("No unprocessed Idealist jobs found for this search.")
       return "\n\n".join(results)
@@ -204,14 +218,21 @@ if __name__ == "__main__":
       )
     raise SystemExit(0)
 
+  load_dotenv(PROJECT_DIR / ".env")
   print("## Welcome to Job Finder")
   print('-------------------------------')
-  job_ask = input(
-    dedent("""
-      What kind of job are you looking for?
-    """))
-  
-  job_crew = JobCrew(job_ask, model=args.model)
+  keyword_default = os.getenv("JOB_SEARCH_KEYWORDS", "").strip()
+  location_default = os.getenv("JOB_SEARCH_LOCATION", "").strip()
+  keyword_hint = f" [{keyword_default}]" if keyword_default else ""
+  location_hint = f" [{location_default}]" if location_default else ""
+  entered_keywords = input(f"What kind of job are you looking for?{keyword_hint}\n")
+  entered_location = input(f"Location (nyc or remote)?{location_hint}\n")
+  try:
+    job_ask, location = resolve_search_inputs(entered_keywords, entered_location)
+  except ValueError as error:
+    parser.error(str(error))
+
+  job_crew = JobCrew(job_ask, location, model=args.model)
   result = job_crew.run()
   print("\n\n########################")
   print("## Here are your jobs")

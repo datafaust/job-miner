@@ -6,6 +6,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 from job_tools.job_history import filter_unprocessed, is_processed, job_key, record_processed
+from job_tools.location import greenhouse_matches_location
 from job_tools.prospects import extract_and_save
 
 MAX_GREENHOUSE_SUMMARIES = 2
@@ -69,7 +70,7 @@ def scrape_greenhouse(board_token="stripe"):
     return jobs
 
 
-def greenhouse_candidates(jobs, query, company="Stripe"):
+def greenhouse_candidates(jobs, query, company="Stripe", location=None):
     """Find title matches, falling back to description keywords when needed."""
     terms = set(re.findall(r"[a-z0-9]+", query.casefold())) - {
         "a", "an", "and", "at", "for", "in", "job", "jobs", "of", "or", "the", "to", "with",
@@ -83,6 +84,8 @@ def greenhouse_candidates(jobs, query, company="Stripe"):
     for job in jobs:
         if not isinstance(job, dict):
             continue
+        if location is not None and not greenhouse_matches_location(job, location):
+            continue
         title = job.get("title")
         url = job.get("absolute_url")
         content = job.get("content")
@@ -91,8 +94,8 @@ def greenhouse_candidates(jobs, query, company="Stripe"):
         if not title.strip() or not content.strip():
             continue
         title_terms = set(re.findall(r"[a-z0-9]+", title.casefold()))
-        location = job.get("location") or {}
-        location_name = location.get("name", "") if isinstance(location, dict) else ""
+        location_data = job.get("location") or {}
+        location_name = location_data.get("name", "") if isinstance(location_data, dict) else ""
         context_terms = set(re.findall(r"[a-z0-9]+", str(location_name).casefold()))
         candidate = {"text": f"{title}\n{company}\n{location_name}", "link": url, "job": job}
         title_matches = len(terms & title_terms)

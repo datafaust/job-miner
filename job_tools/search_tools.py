@@ -6,13 +6,28 @@ from urllib.parse import urlencode
 #from scrape_job import scrape_idealist_job_details
 from crewai.tools import tool
 from job_tools.job_history import filter_unprocessed
+from job_tools.location import normalize_search_location
 from selenium.webdriver.support.ui import WebDriverWait
+
+def idealist_search_url(query, location):
+    """Add the requested location to Idealist's keyword search."""
+    query = query.strip()
+    if not query:
+        raise ValueError("Idealist search keywords are required")
+    if not location.strip():
+        raise ValueError("Idealist search location is required")
+    location = normalize_search_location(location)
+    if location == "remote":
+        params = {"q": query, "locationType": "REMOTE"}
+    else:
+        params = {"q": f"{query} New York City"}
+    return f"https://www.idealist.org/en/jobs?{urlencode(params)}"
 
 
 class SearchTools():
 
   @tool("Search the idealist website")
-  def search_idealist(query):
+  def search_idealist(query, location):
     """Search Idealist and return up to three jobs not already processed."""
     print("SEARCHING IDEALIST WITH THE QUERY...")
     top_result_to_return = 3
@@ -23,7 +38,7 @@ class SearchTools():
     driver = webdriver.Chrome(options=options)
 
     try:
-        url = f"https://www.idealist.org/en/jobs?{urlencode({'q': query})}"
+        url = idealist_search_url(query, location)
         driver.get(url)
 
         # Idealist loads results asynchronously; an empty page has its own marker.

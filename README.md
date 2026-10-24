@@ -4,9 +4,9 @@ Job Watcher is an early job search prototype. Its current entry point asks for a
 
 ## What happens during a run
 
-1. [`main.py`](main.py) visits each board in [`config/greenhouse_boards.json`](config/greenhouse_boards.json), fetches its jobs with full descriptions, and searches for the entered request. It ranks unprocessed title matches ahead of description matches, using location as a tie breaker. Candidates from different boards are taken in rounds, with **at most five Greenhouse jobs summarized per run** across all boards. This cap is set by `MAX_GREENHOUSE_SUMMARIES` in [`job_tools/greenhouse.py`](job_tools/greenhouse.py). A failed board request is reported, and the search continues through the remaining boards and Idealist.
+1. [`main.py`](main.py) visits each board in [`config/greenhouse_boards.json`](config/greenhouse_boards.json) and fetches its jobs with full descriptions. The entered `nyc` or `remote` choice filters Greenhouse jobs by their published location labels before ranking. It ranks unprocessed title matches ahead of description matches, using location as a tie breaker. Candidates from different boards are taken in rounds, with **at most two Greenhouse jobs summarized per run** across all boards. This cap is set by `MAX_GREENHOUSE_SUMMARIES` in [`job_tools/greenhouse.py`](job_tools/greenhouse.py). A failed board request is reported, and the search continues through the remaining boards and Idealist.
 2. Each processed Greenhouse job's complete API listing is saved as `jobs/JOB_greenhouse_<board-token>_<id>.json`. Its text is given to the organizer, and its Greenhouse ID is recorded in history. Other Greenhouse postings remain eligible for later runs.
-3. The Idealist search reports how many listings it recovered and how many remain after filtering local history, writes the remaining listings to `output.json`, and returns up to three unprocessed listings.
+3. For `nyc`, the Idealist search adds `New York City` to the keywords; this is a keyword preference, not a strict location filter. For `remote`, it uses Idealist's Remote location-type filter with the original keywords. The search reports how many listings it recovered and how many remain after filtering local history, writes the remaining listings to `output.json`, and returns up to three unprocessed listings.
 4. The selection agent in [`job_agents.py`](job_agents.py) recommends one Idealist listing. The detail tool expands the posting, saves it as `jobs/JOB_idealist_<id>.txt`, and records it in history after scraping succeeds.
 5. For each selected posting, the organizer receives the actual posting text and can write a summary or say that a summary is unnecessary. Its decision is saved in `job_history.sqlite3`. The terminal prints the source URL, search listing, decision, and original posting text.
 6. A separate, rule-based extractor saves source-backed title, company, salary range, posting date or source age, work arrangement, and location in the `prospective_jobs` table. It runs when a posting is saved, independently of the AI summary.
@@ -66,6 +66,7 @@ Run these commands from the repository root. Python 3.10 is a suitable version f
 python3.10 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
+cp .env.example .env
 ```
 
 The workflow also needs:
@@ -88,7 +89,7 @@ To use another installed Ollama model, pass its name. For example, after running
 python main.py --model llama3.2
 ```
 
-Enter a job request when prompted, such as `remote software engineer`. Both agents use the selected model, then process matching configured Greenhouse and Idealist postings and print the organized results. The run is interactive and may take time because it requests every configured board, uses a browser, and runs a local model.
+Enter job keywords when prompted, then enter `nyc` (also accepts `New York`) or `remote`. Press Enter to use the defaults in `.env`: `JOB_SEARCH_KEYWORDS=data analyst` and `JOB_SEARCH_LOCATION=nyc`. A missing keyword or location with no environment default is an error. Other location values are rejected for now. Greenhouse considers explicit NYC labels for `nyc`, and plain `Remote` or explicitly US/NYC remote labels for `remote`; ambiguous or foreign-only remote labels are skipped. Neither choice changes the Greenhouse API request. Both agents use the selected model, then process matching postings and print the organized results. The run is interactive and may take time because it requests every configured board, uses a browser, and runs a local model.
 
 ## Other files
 
@@ -101,7 +102,7 @@ Enter a job request when prompted, such as `remote software engineer`. Both agen
 
 ## Current limitations
 
-- Greenhouse attempts summaries for at most five matching, unprocessed jobs per run. Idealist offers at most three unprocessed listings to the selection agent and processes one. Greenhouse keyword matching may miss related roles that use different wording.
+- Greenhouse attempts summaries for at most two matching, unprocessed jobs per run. Idealist offers at most three unprocessed listings to the selection agent and processes one. Greenhouse keyword matching may miss related roles that use different wording.
 - Scraping relies on fixed Idealist page selectors, which can break when the site layout changes.
 - The organizer agent has no tools of its own; it summarizes the scraped posting supplied by the workflow. Its summary should be checked against the original text printed below it.
 - Automated tests cover job history and the workflow with mocked browser and model calls; a live search still depends on Idealist, Chrome, and Ollama.
