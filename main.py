@@ -1,0 +1,191 @@
+import argparse
+import json
+import requests
+import traceback
+from datetime import datetime, timezone
+from pathlib import Path
+
+from crewai import Crew
+from textwrap import dedent
+from job_agents import JobAgents
+from job_tasks import JobTasks
+from job_tools.browser_tools import BrowserTools
+from job_tools.greenhouse import MAX_GREENHOUSE_SUMMARIES, greenhouse_candidates, save_greenhouse_job, scrape_greenhouse
+from job_tools.job_history import job_key, record_ai_result, saved_ai_results
+from job_tools.search_tools import SearchTools
+
+PROJECT_DIR = Path(__file__).resolve().parent
+CREWAI_LOG_PATH = PROJECT_DIR / "crewai_log.txt"
+SUMMARY_LOG_PATH = PROJECT_DIR / "summary_attempts.jsonl"
+
+
+def log_summary_attempt(url, title, model, raw_output, status, reason, error=None):
+  """Keep the model's original reply and our decision for local debugging."""
+  entry = {
+    "timestamp": datetime.now(timezone.utc).isoformat(),
+    "job_key": job_key(url),
+    "url": url,
+    "title": title,
+    "model": model,
+    "status": status,
+    "reason": reason,
+    "raw_output": raw_output,
+    "error": error,
+  }
+  try:
+    with SUMMARY_LOG_PATH.open("a", encoding="utf-8") as log_file:
+      log_file.write(json.dumps(entry, ensure_ascii=False) + "\n")
+  except OSError as log_error:
+    print(f"Could not write summary debug log: {log_error}")
+
+
+class JobCrew:
+
+  def __init__(self, job_ask, model="openhermes"):
+    self.job_ask = job_ask
+    self.model = model
+
+  def run(self):
+    greenhouse_jobs = []
+    try:
+      greenhouse_jobs = scrape_greenhouse("stripe")
+    except requests.RequestException as error:
+      print(f"Greenhouse scrape failed for stripe: {error}")
+
+    agents = JobAgents(model=self.model)
+    tasks = JobTasks()
+    results = []
+
+    candidates = greenhouse_candidates(greenhouse_jobs, self.job_ask)
+    if candidates:
+      for selected in candidates[:MAX_GREENHOUSE_SUMMARIES]:
+        url = selected["link"]
+        print(f"Selected Greenhouse job: {selected['job']['title']} ({url})")
+        job_text = save_greenhouse_job(selected["job"])
+        results.append(self._summarize_job(agents, tasks, selected, job_text))
+    else:
+      print("No matching unprocessed Stripe Greenhouse jobs found.")
+
+    search_results = json.loads(SearchTools.search_idealist.run(self.job_ask))
+    if not search_results:
+      results.append("No unprocessed Idealist jobs found for this search.")
+      return "\n\n".join(results)
+
+    selected = self._select_candidate(agents, tasks, search_results[:3], "Idealist")
+    url = selected["link"]
+    print(f"Selected job: {selected['text'].splitlines()[0]} ({url})")
+    job_text = BrowserTools.scrape_idealist_job_details.run(url)
+    if not job_text or job_text.startswith("This Idealist job was already processed"):
+      raise RuntimeError("The selected job could not be scraped.")
+    results.append(self._summarize_job(agents, tasks, selected, job_text))
+    return "\n\n".join(results)
+
+  def _select_candidate(self, agents, tasks, candidates, source):
+    # The agent may recommend a candidate, but it cannot invent a new URL.
+    if len(candidates) == 1:
+      return candidates[0]
+    listings = [{"text": job["text"], "link": job["link"]} for job in candidates]
+    selection_task = tasks.identify_task(
+      agents.job_selection_agent(), self.job_ask, listings, source
+    )
+    try:
+      selection = str(Crew(
+        agents=[selection_task.agent], tasks=[selection_task], verbose=True,
+        output_log_file=str(CREWAI_LOG_PATH),
+      ).kickoff())
+    except Exception as error:
+      print(f"Selection agent failed ({type(error).__name__}); using the first search result.")
+      return candidates[0]
+    matches = [job for job in candidates if job["link"] in selection]
+    if len(matches) == 1:
+      return matches[0]
+    print("Selection agent did not identify one listed URL; using the first search result.")
+    return candidates[0]
+
+  def _summarize_job(self, agents, tasks, selected, job_text):
+    url = selected["link"]
+    organizer = agents.job_information_organizer()
+    job_title = selected["text"].splitlines()[0].strip()
+    gather_task = tasks.gather_task(organizer, job_text, url, job_title)
+    raw_output = None
+    error_detail = None
+    try:
+      raw_output = str(Crew(
+        agents=[organizer], tasks=[gather_task], verbose=True,
+        output_log_file=str(CREWAI_LOG_PATH),
+      ).kickoff())
+      summary = raw_output.strip()
+      lines = [line.strip() for line in summary.splitlines() if line.strip()]
+      skip_line = f"NO_SUMMARY_NEEDED: {job_title}"
+      if (
+        len(lines) == 2
+        and lines[0] == skip_line
+        and lines[1].startswith("Reason:")
+        and lines[1][len("Reason:"):].strip()
+        and "tool" not in lines[1].casefold()
+      ):
+        summary = f"No summary needed for {job_title}. {lines[1][len('Reason:'):].strip()}"
+        summary_status = "not_needed"
+        reason = "Model said the posting was already clear"
+      elif len(lines) < 2 or lines[0] != f"SUMMARY: {job_title}":
+        summary = "The selected model did not produce a job-specific summary."
+        summary_status = "failed"
+        if not lines:
+          reason = "Empty model response"
+        elif lines[0].startswith("NO_SUMMARY_NEEDED:"):
+          reason = "NO_SUMMARY_NEEDED response did not have exactly two valid lines"
+        elif lines[0] != f"SUMMARY: {job_title}":
+          reason = f"Expected first line: SUMMARY: {job_title}"
+        else:
+          reason = "Summary body was missing"
+      else:
+        summary_status = "summarized"
+        reason = "Valid job-specific summary"
+    except Exception as error:
+      print(f"Organizer agent failed ({type(error).__name__}); showing the original posting.")
+      summary = "The selected model could not summarize this posting."
+      summary_status = "failed"
+      reason = f"CrewAI raised {type(error).__name__}"
+      error_detail = traceback.format_exc()
+
+    log_summary_attempt(url, job_title, self.model, raw_output, summary_status, reason, error_detail)
+
+    record_ai_result(url, job_title, self.model, summary_status, summary)
+    print(f"Saved AI result under job ID {job_key(url)} in job_history.sqlite3.")
+
+    return (
+      f"Source: {url}\n\nSearch listing:\n{selected['text']}\n\n"
+      f"AI result:\n{summary}\n\nOriginal posting text:\n{job_text}"
+    )
+
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser(description="Find and organize Stripe Greenhouse and Idealist job postings.")
+  parser.add_argument("--model", default="openhermes", help="Ollama model to use (default: openhermes)")
+  parser.add_argument("--saved-summaries", action="store_true", help="Show saved AI results without searching")
+  args = parser.parse_args()
+
+  if args.saved_summaries:
+    results = saved_ai_results()
+    if not results:
+      print("No AI results have been saved yet.")
+    for key, title, model, status, result_text, saved_at, url, detail_file in results:
+      print(
+        f"{title} [{status}] — {saved_at}\n"
+        f"Job ID: {key}\nModel: {model}\nSource: {url}\n"
+        f"Original posting: {detail_file}\nAI result:\n{result_text}\n"
+      )
+    raise SystemExit(0)
+
+  print("## Welcome to Job Finder")
+  print('-------------------------------')
+  job_ask = input(
+    dedent("""
+      What kind of job are you looking for?
+    """))
+  
+  job_crew = JobCrew(job_ask, model=args.model)
+  result = job_crew.run()
+  print("\n\n########################")
+  print("## Here are your jobs")
+  print("########################\n")
+  print(result)

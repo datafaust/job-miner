@@ -1,0 +1,6 @@
+# CrewAI's Ollama integration uses LiteLLM.
+crewai[litellm]==1.9.3
+
+# Browser automation.
+selenium==4.16.0
+requests>=2.31,<3

@@ -1,0 +1,38 @@
+# Local secrets and configuration
+.env
+.env.*
+!.env.example
+
+# Python bytecode, environments, and tool caches
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Generated job search and scraping results
+output.json
+job_history.sqlite3*
+JOB_*.txt
+JOB_greenhouse_*.json
+crewai_log.txt
+summary_attempts.jsonl
+prospective_jobs.json
+output.txt
+element_text.txt
+
+# Local browser driver downloads and applicant documents
+chromedriver-*/
+docs/*.docx
+docs/*.pdf
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
+*.swp
