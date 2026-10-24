@@ -5,13 +5,13 @@ Job Watcher is an early job search prototype. Its current entry point asks for a
 ## What happens during a run
 
 1. [`main.py`](main.py) fetches Stripe's Greenhouse jobs with full descriptions and passes the entered job request to its candidate search. It ranks unprocessed title matches first. If none remain, it searches description keywords, using location as a tie breaker. It processes **at most five Greenhouse jobs per run** in ranked order; this is a temporary hard cap on Greenhouse AI summary attempts, set by `MAX_GREENHOUSE_SUMMARIES` in [`job_tools/greenhouse.py`](job_tools/greenhouse.py). A Greenhouse request failure is reported without stopping Idealist.
-2. Each processed Greenhouse job's complete API listing is saved as `JOB_greenhouse_stripe_<id>.json`. Its text is given to the organizer, and its Greenhouse ID is recorded in history. Other Greenhouse postings remain eligible for later runs.
+2. Each processed Greenhouse job's complete API listing is saved as `jobs/JOB_greenhouse_stripe_<id>.json`. Its text is given to the organizer, and its Greenhouse ID is recorded in history. Other Greenhouse postings remain eligible for later runs.
 3. The Idealist search reports how many listings it recovered and how many remain after filtering local history, writes the remaining listings to `output.json`, and returns up to three unprocessed listings.
-4. The selection agent in [`job_agents.py`](job_agents.py) recommends one Idealist listing. The detail tool expands the posting, saves it as `JOB_*.txt`, and records it in history after scraping succeeds.
+4. The selection agent in [`job_agents.py`](job_agents.py) recommends one Idealist listing. The detail tool expands the posting, saves it as `jobs/JOB_idealist_<id>.txt`, and records it in history after scraping succeeds.
 5. For each selected posting, the organizer receives the actual posting text and can write a summary or say that a summary is unnecessary. Its decision is saved in `job_history.sqlite3`. The terminal prints the source URL, search listing, decision, and original posting text.
 6. A separate, rule-based extractor saves source-backed title, company, salary range, posting date or source age, work arrangement, and location in the `prospective_jobs` table. It runs when a posting is saved, independently of the AI summary.
 
-`output.json`, `JOB_*.txt`, and `JOB_greenhouse_*.json` are generated in the directory where you run the command and are ignored by Git. Idealist uses Selenium; Greenhouse uses its public API.
+All saved job files go into the main `jobs/` folder in the directory where you run the command. Greenhouse postings are `JOB_greenhouse_*.json`, and Idealist postings are `JOB_idealist_*.txt`. The folder is created if needed, and these files are ignored by Git. The search snapshot `output.json` remains in the directory where you run the command. Idealist uses Selenium; Greenhouse uses its public API.
 
 ### Job history
 
@@ -44,7 +44,7 @@ To read saved results without starting a new search or Ollama session:
 python main.py --saved-summaries
 ```
 
-Only runs made after this change have saved AI results; earlier terminal output cannot be recovered from the database. The original `JOB_*.txt` and `JOB_greenhouse_*.json` files remain separate so you can compare any result with its source.
+Only runs made after this change have saved AI results; earlier terminal output cannot be recovered from the database. The original Idealist text and Greenhouse JSON files remain in `jobs/` so you can compare any result with its source.
 
 ### Debug logs
 

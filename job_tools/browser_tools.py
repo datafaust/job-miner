@@ -59,11 +59,13 @@ class BrowserTools:
                     break
 
             safe_key = re.sub(r"[^A-Za-z0-9_-]", "_", job_key(url))[:100]
-            file_name = f"JOB_{safe_key}.txt"
-            Path(file_name).write_text(job_text, encoding="utf-8")
-            record_processed(url, file_name)
+            job_dir = Path("jobs")
+            job_dir.mkdir(exist_ok=True)
+            file_path = job_dir / f"JOB_{safe_key}.txt"
+            file_path.write_text(job_text, encoding="utf-8")
+            record_processed(url, str(file_path))
             try:
-                extract_and_save(url, file_name)
+                extract_and_save(url, str(file_path))
             except (OSError, ValueError, KeyError) as error:
                 print(f"Could not extract prospective job fields for {url}: {error}")
             return job_text

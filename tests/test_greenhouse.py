@@ -52,8 +52,14 @@ class GreenhouseTests(unittest.TestCase):
                     self.assertTrue(job_history.is_processed(job["absolute_url"]))
                     self.assertEqual(prospects.list_prospects()[0]["job_title"], "Software Engineer")
                     self.assertEqual(greenhouse_candidates([job], "software engineer"), [])
-                    saved_file = Path("JOB_greenhouse_stripe_8172487.json")
+                    saved_file = Path("jobs/JOB_greenhouse_stripe_8172487.json")
                     self.assertEqual(json.loads(saved_file.read_text()), job)
+                    with job_history._database() as connection:
+                        detail_file = connection.execute(
+                            "SELECT detail_file FROM processed_jobs WHERE job_key = ?",
+                            (job_history.job_key(job["absolute_url"]),),
+                        ).fetchone()[0]
+                    self.assertEqual(detail_file, str(saved_file))
                     with self.assertRaisesRegex(ValueError, "already processed"):
                         save_greenhouse_job(job)
             finally:

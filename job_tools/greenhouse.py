@@ -116,11 +116,13 @@ def save_greenhouse_job(job, board_token="stripe"):
     safe_token = re.sub(r"[^A-Za-z0-9_-]", "_", board_token)
     job_id = job_key(url).removeprefix("greenhouse:")
     safe_id = re.sub(r"[^A-Za-z0-9_-]", "_", job_id)
-    file_name = f"JOB_greenhouse_{safe_token}_{safe_id}.json"
-    Path(file_name).write_text(json.dumps(job, ensure_ascii=False, indent=2), encoding="utf-8")
-    record_processed(url, file_name)
+    job_dir = Path("jobs")
+    job_dir.mkdir(exist_ok=True)
+    file_path = job_dir / f"JOB_greenhouse_{safe_token}_{safe_id}.json"
+    file_path.write_text(json.dumps(job, ensure_ascii=False, indent=2), encoding="utf-8")
+    record_processed(url, str(file_path))
     try:
-        extract_and_save(url, file_name)
+        extract_and_save(url, str(file_path))
     except (OSError, ValueError, KeyError) as error:
         print(f"Could not extract prospective job fields for {url}: {error}")
 
