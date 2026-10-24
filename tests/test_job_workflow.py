@@ -25,6 +25,9 @@ class JobWorkflowTests(unittest.TestCase):
         self.scrape_greenhouse = greenhouse_patch.start()
         self.scrape_greenhouse.return_value = []
         self.addCleanup(greenhouse_patch.stop)
+        boards_patch = patch("main.load_greenhouse_boards", return_value=[{"company": "Stripe", "token": "stripe"}])
+        boards_patch.start()
+        self.addCleanup(boards_patch.stop)
 
     def test_unhelpful_model_output_cannot_replace_a_real_posting(self):
         candidates = [
@@ -166,7 +169,7 @@ class JobWorkflowTests(unittest.TestCase):
             search.search_idealist.run.return_value = "[]"
             output = JobCrew("software engineer").run()
 
-        save.assert_called_once_with(job)
+        save.assert_called_once_with(job, board_token="stripe")
         self.record_ai_result.assert_called_once_with(
             job["absolute_url"], "Software Engineer", "openhermes", "summarized",
             "SUMMARY: Software Engineer\nBuild services.",
@@ -174,6 +177,48 @@ class JobWorkflowTests(unittest.TestCase):
         browser.scrape_idealist_job_details.run.assert_not_called()
         self.assertIn("SUMMARY: Software Engineer", output)
         self.assertIn("No unprocessed Idealist jobs", output)
+
+    def test_configured_boards_continue_after_failure_and_save_with_correct_token(self):
+        boards = [
+            {"company": "Airbnb", "token": "airbnb"},
+            {"company": "Figma", "token": "figma"},
+            {"company": "GitHub", "token": "github"},
+        ]
+        jobs = {
+            "figma": [{
+                "id": 10, "title": "Software Engineer",
+                "absolute_url": "https://boards.greenhouse.io/figma/jobs/10",
+                "location": {"name": "Remote"}, "content": "<p>Build software.</p>",
+            }],
+            "github": [{
+                "id": 20, "title": "Software Engineer",
+                "absolute_url": "https://boards.greenhouse.io/github/jobs/20",
+                "location": {"name": "Remote"}, "content": "<p>Build software.</p>",
+            }],
+        }
+
+        def fetch(token):
+            if token == "airbnb":
+                raise ValueError("Invalid response")
+            return jobs[token]
+
+        with patch("main.load_greenhouse_boards", return_value=boards), \
+             patch("main.greenhouse_candidates", side_effect=lambda items, query, company: [
+                 {"text": f"{items[0]['title']}\n{company}\nRemote", "link": items[0]["absolute_url"],
+                  "job": items[0], "match_type": "title"}
+             ]), \
+             patch("main.save_greenhouse_job", return_value="Original posting") as save, \
+             patch("main.SearchTools") as search, \
+             patch("main.Crew.kickoff", return_value="No summary"):
+            self.scrape_greenhouse.side_effect = fetch
+            search.search_idealist.run.return_value = "[]"
+            JobCrew("software engineer").run()
+
+        self.assertEqual([call.args[0] for call in self.scrape_greenhouse.call_args_list],
+                         ["airbnb", "figma", "github"])
+        self.assertEqual([call.kwargs["board_token"] for call in save.call_args_list],
+                         ["figma", "github"])
+        self.assertEqual(self.record_ai_result.call_count, 2)
 
     def test_greenhouse_ai_summary_attempts_stop_at_five(self):
         candidates = [

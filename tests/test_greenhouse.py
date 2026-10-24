@@ -8,10 +8,40 @@ from pathlib import Path
 from unittest.mock import patch
 
 from job_tools import job_history, prospects
-from job_tools.greenhouse import greenhouse_candidates, save_greenhouse_job, scrape_greenhouse
+from job_tools.greenhouse import greenhouse_candidates, load_greenhouse_boards, save_greenhouse_job, scrape_greenhouse
 
 
 class GreenhouseTests(unittest.TestCase):
+    def test_board_config_activates_only_three_companies(self):
+        boards = load_greenhouse_boards()
+        self.assertEqual(boards, [
+            {"company": "Stripe", "token": "stripe"},
+            {"company": "Airbnb", "token": "airbnb"},
+            {"company": "Figma", "token": "figma"},
+        ])
+
+    def test_commented_board_entries_are_ignored(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory) / "boards.json"
+            config.write_text(
+                '[\n  {"company": "Stripe", "token": "stripe"},\n'
+                '  // {"company": "Airbnb", "token": "airbnb"}\n]\n',
+                encoding="utf-8",
+            )
+            self.assertEqual(load_greenhouse_boards(config), [
+                {"company": "Stripe", "token": "stripe"}
+            ])
+
+    def test_candidate_uses_configured_company_name(self):
+        job = {
+            "title": "Software Engineer", "absolute_url": "https://boards.greenhouse.io/figma/jobs/987654",
+            "location": {"name": "Remote"}, "content": "<p>Build software.</p>",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(job_history, "HISTORY_DB_PATH", Path(directory) / "history.sqlite3"):
+                candidate = greenhouse_candidates([job], "software engineer", "Figma")[0]
+        self.assertEqual(candidate["text"], "Software Engineer\nFigma\nRemote")
+
     def test_fetches_stripe_jobs_and_prints_success(self):
         jobs = [{"title": "Engineer", "content": "Full description"}]
         with patch("job_tools.greenhouse.requests.get") as get:

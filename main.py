@@ -3,6 +3,7 @@ import json
 import requests
 import traceback
 from datetime import datetime, timezone
+from itertools import zip_longest
 from pathlib import Path
 
 from crewai import Crew
@@ -10,7 +11,7 @@ from textwrap import dedent
 from job_agents import JobAgents
 from job_tasks import JobTasks
 from job_tools.browser_tools import BrowserTools
-from job_tools.greenhouse import MAX_GREENHOUSE_SUMMARIES, greenhouse_candidates, save_greenhouse_job, scrape_greenhouse
+from job_tools.greenhouse import MAX_GREENHOUSE_SUMMARIES, greenhouse_candidates, load_greenhouse_boards, save_greenhouse_job, scrape_greenhouse
 from job_tools.job_history import job_key, record_ai_result, saved_ai_results
 from job_tools.search_tools import SearchTools
 
@@ -46,25 +47,52 @@ class JobCrew:
     self.model = model
 
   def run(self):
-    greenhouse_jobs = []
-    try:
-      greenhouse_jobs = scrape_greenhouse("stripe")
-    except requests.RequestException as error:
-      print(f"Greenhouse scrape failed for stripe: {error}")
-
     agents = JobAgents(model=self.model)
     tasks = JobTasks()
     results = []
 
-    candidates = greenhouse_candidates(greenhouse_jobs, self.job_ask)
-    if candidates:
-      for selected in candidates[:MAX_GREENHOUSE_SUMMARIES]:
+    candidate_groups = []
+    for board in load_greenhouse_boards():
+      try:
+        jobs = scrape_greenhouse(board["token"])
+      except (requests.RequestException, ValueError) as error:
+        print(f"Greenhouse scrape failed for {board['company']} ({board['token']}): {error}")
+        continue
+      matches = greenhouse_candidates(jobs, self.job_ask, board["company"])
+      candidate_groups.append([(match, board["token"]) for match in matches])
+
+    selected_jobs = []
+    seen_keys = set()
+    for match_type in ("title", "description"):
+      groups = [
+        [(match, token) for match, token in group
+         if match.get("match_type", "title") == match_type]
+        for group in candidate_groups
+      ]
+      for row in zip_longest(*groups):
+        for item in row:
+          if item is None:
+            continue
+          match, token = item
+          key = job_key(match["link"])
+          if key not in seen_keys:
+            selected_jobs.append((match, token))
+            seen_keys.add(key)
+          if len(selected_jobs) == MAX_GREENHOUSE_SUMMARIES:
+            break
+        if len(selected_jobs) == MAX_GREENHOUSE_SUMMARIES:
+          break
+      if len(selected_jobs) == MAX_GREENHOUSE_SUMMARIES:
+        break
+
+    if selected_jobs:
+      for selected, token in selected_jobs:
         url = selected["link"]
         print(f"Selected Greenhouse job: {selected['job']['title']} ({url})")
-        job_text = save_greenhouse_job(selected["job"])
+        job_text = save_greenhouse_job(selected["job"], board_token=token)
         results.append(self._summarize_job(agents, tasks, selected, job_text))
     else:
-      print("No matching unprocessed Stripe Greenhouse jobs found.")
+      print("No matching unprocessed Greenhouse jobs found.")
 
     search_results = json.loads(SearchTools.search_idealist.run(self.job_ask))
     if not search_results:
@@ -159,7 +187,7 @@ class JobCrew:
     )
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser(description="Find and organize Stripe Greenhouse and Idealist job postings.")
+  parser = argparse.ArgumentParser(description="Find and organize configured Greenhouse and Idealist job postings.")
   parser.add_argument("--model", default="openhermes", help="Ollama model to use (default: openhermes)")
   parser.add_argument("--saved-summaries", action="store_true", help="Show saved AI results without searching")
   args = parser.parse_args()

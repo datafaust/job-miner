@@ -8,7 +8,29 @@ from pathlib import Path
 from job_tools.job_history import filter_unprocessed, is_processed, job_key, record_processed
 from job_tools.prospects import extract_and_save
 
-MAX_GREENHOUSE_SUMMARIES = 5
+MAX_GREENHOUSE_SUMMARIES = 2
+BOARD_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "greenhouse_boards.json"
+
+
+def load_greenhouse_boards(path=BOARD_CONFIG_PATH):
+    """Read active board entries, allowing whole-line // comments in the config."""
+    lines = Path(path).read_text(encoding="utf-8").splitlines()
+    active_config = "\n".join(line for line in lines if not line.lstrip().startswith("//"))
+    active_config = re.sub(r",(?=\s*])", "", active_config)
+    boards = json.loads(active_config)
+    if not isinstance(boards, list):
+        raise ValueError("Greenhouse board config must be a list")
+    seen = set()
+    for board in boards:
+        if not isinstance(board, dict) or not isinstance(board.get("company"), str) or not board["company"].strip():
+            raise ValueError("Each Greenhouse board needs a company name")
+        token = board.get("token")
+        if not isinstance(token, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", token):
+            raise ValueError("Each Greenhouse board needs a valid token")
+        if token in seen:
+            raise ValueError(f"Duplicate Greenhouse board token: {token}")
+        seen.add(token)
+    return boards
 
 
 class _DescriptionText(HTMLParser):
@@ -47,7 +69,7 @@ def scrape_greenhouse(board_token="stripe"):
     return jobs
 
 
-def greenhouse_candidates(jobs, query):
+def greenhouse_candidates(jobs, query, company="Stripe"):
     """Find title matches, falling back to description keywords when needed."""
     terms = set(re.findall(r"[a-z0-9]+", query.casefold())) - {
         "a", "an", "and", "at", "for", "in", "job", "jobs", "of", "or", "the", "to", "with",
@@ -72,12 +94,14 @@ def greenhouse_candidates(jobs, query):
         location = job.get("location") or {}
         location_name = location.get("name", "") if isinstance(location, dict) else ""
         context_terms = set(re.findall(r"[a-z0-9]+", str(location_name).casefold()))
-        candidate = {"text": f"{title}\nStripe\n{location_name}", "link": url, "job": job}
+        candidate = {"text": f"{title}\n{company}\n{location_name}", "link": url, "job": job}
         title_matches = len(terms & title_terms)
         if title_matches:
+            candidate["match_type"] = "title"
             score = 3 * title_matches + len(terms & context_terms)
             title_ranked.append((score, candidate))
         else:
+            candidate["match_type"] = "description"
             description_jobs.append((candidate, context_terms, content))
 
     title_ranked.sort(key=lambda item: item[0], reverse=True)

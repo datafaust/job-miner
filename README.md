@@ -1,17 +1,19 @@
 # Job Watcher
 
-Job Watcher is an early job search prototype. Its current entry point asks for a job description, searches Stripe's Greenhouse board and [Idealist](https://www.idealist.org/), and uses CrewAI to choose and organize postings. Both agents use the same local Ollama model, `openhermes` by default. It prints the results in the terminal; it does not apply to jobs or run on a schedule.
+Job Watcher is an early job search prototype. Its current entry point asks for a job description, searches the configured Greenhouse company boards and [Idealist](https://www.idealist.org/), and uses CrewAI to choose and organize postings. Both agents use the same local Ollama model, `openhermes` by default. It prints the results in the terminal; it does not apply to jobs or run on a schedule.
 
 ## What happens during a run
 
-1. [`main.py`](main.py) fetches Stripe's Greenhouse jobs with full descriptions and passes the entered job request to its candidate search. It ranks unprocessed title matches first. If none remain, it searches description keywords, using location as a tie breaker. It processes **at most five Greenhouse jobs per run** in ranked order; this is a temporary hard cap on Greenhouse AI summary attempts, set by `MAX_GREENHOUSE_SUMMARIES` in [`job_tools/greenhouse.py`](job_tools/greenhouse.py). A Greenhouse request failure is reported without stopping Idealist.
-2. Each processed Greenhouse job's complete API listing is saved as `jobs/JOB_greenhouse_stripe_<id>.json`. Its text is given to the organizer, and its Greenhouse ID is recorded in history. Other Greenhouse postings remain eligible for later runs.
+1. [`main.py`](main.py) visits each board in [`config/greenhouse_boards.json`](config/greenhouse_boards.json), fetches its jobs with full descriptions, and searches for the entered request. It ranks unprocessed title matches ahead of description matches, using location as a tie breaker. Candidates from different boards are taken in rounds, with **at most five Greenhouse jobs summarized per run** across all boards. This cap is set by `MAX_GREENHOUSE_SUMMARIES` in [`job_tools/greenhouse.py`](job_tools/greenhouse.py). A failed board request is reported, and the search continues through the remaining boards and Idealist.
+2. Each processed Greenhouse job's complete API listing is saved as `jobs/JOB_greenhouse_<board-token>_<id>.json`. Its text is given to the organizer, and its Greenhouse ID is recorded in history. Other Greenhouse postings remain eligible for later runs.
 3. The Idealist search reports how many listings it recovered and how many remain after filtering local history, writes the remaining listings to `output.json`, and returns up to three unprocessed listings.
 4. The selection agent in [`job_agents.py`](job_agents.py) recommends one Idealist listing. The detail tool expands the posting, saves it as `jobs/JOB_idealist_<id>.txt`, and records it in history after scraping succeeds.
 5. For each selected posting, the organizer receives the actual posting text and can write a summary or say that a summary is unnecessary. Its decision is saved in `job_history.sqlite3`. The terminal prints the source URL, search listing, decision, and original posting text.
 6. A separate, rule-based extractor saves source-backed title, company, salary range, posting date or source age, work arrangement, and location in the `prospective_jobs` table. It runs when a posting is saved, independently of the AI summary.
 
 All saved job files go into the main `jobs/` folder in the directory where you run the command. Greenhouse postings are `JOB_greenhouse_*.json`, and Idealist postings are `JOB_idealist_*.txt`. The folder is created if needed, and these files are ignored by Git. The search snapshot `output.json` remains in the directory where you run the command. Idealist uses Selenium; Greenhouse uses its public API.
+
+The Greenhouse board config has one `{"company": "Name", "token": "board-token"}` entry per company. Stripe, Airbnb, and Figma are currently active; the other 47 entries are retained as `//` commented lines. Uncomment a line to include that board in the next run, or comment an active line to skip it. Each run requests every active board in config order. The company name appears in search listings, while the token is used for the API request and saved filename. The loader accepts whole-line `//` comments and a trailing comma before the closing bracket.
 
 ### Job history
 
@@ -86,7 +88,7 @@ To use another installed Ollama model, pass its name. For example, after running
 python main.py --model llama3.2
 ```
 
-Enter a job request when prompted, such as `remote software engineer`. Both agents use the selected model, then process matching Stripe and Idealist postings and print the organized results. The run is interactive and may take time because it uses a browser and local model.
+Enter a job request when prompted, such as `remote software engineer`. Both agents use the selected model, then process matching configured Greenhouse and Idealist postings and print the organized results. The run is interactive and may take time because it requests every configured board, uses a browser, and runs a local model.
 
 ## Other files
 
