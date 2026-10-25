@@ -11,6 +11,7 @@ import requests
 from job_tools.greenhouse import _description_text
 from job_tools.job_history import _database, filter_unprocessed, is_processed, job_key, record_processed
 from job_tools.prospects import extract_and_save
+from job_tools.relevance import is_relevant, role_profile, title_strength
 
 API_URL = "https://remoteok.com/api"
 USER_AGENT = "JobWatcher/1.0 (personal job search)"
@@ -83,6 +84,7 @@ def remoteok_candidates(jobs, query, min_salary=0):
     }
     if not terms:
         return []
+    configured = role_profile(query) is not None
     ranked = []
     for index, job in enumerate(jobs):
         if not isinstance(job, dict) or not job.get("id") or not _valid_url(job.get("url")):
@@ -90,6 +92,9 @@ def remoteok_candidates(jobs, query, min_salary=0):
         title = job.get("position")
         description = job.get("description")
         if not isinstance(title, str) or not title.strip() or not isinstance(description, str) or not description.strip():
+            continue
+        description_text = _description_text(description)
+        if not is_relevant(query, title, description_text):
             continue
         try:
             salary_max = int(job.get("salary_max") or 0)
@@ -101,18 +106,20 @@ def remoteok_candidates(jobs, query, min_salary=0):
         other_text = " ".join((
             str(job.get("company") or ""),
             " ".join(str(tag) for tag in (job.get("tags") or [])),
-            _description_text(description),
+            description_text,
         ))
         other_terms = set(re.findall(r"[a-z0-9]+", other_text.casefold()))
         title_matches = len(terms & title_terms)
         other_matches = len(terms & other_terms)
-        if not title_matches and not other_matches:
+        if not configured and not title_matches and not other_matches:
             continue
         candidate = {
             "text": f"{title}\n{job.get('company') or ''}\nRemote OK",
             "link": job["url"], "job": job,
         }
-        ranked.append((bool(title_matches), title_matches, other_matches, -index, candidate))
+        ranked.append((bool(title_matches) or configured,
+                       title_strength(query, title) if configured else title_matches,
+                       other_matches, -index, candidate))
     ranked.sort(reverse=True)
     return filter_unprocessed([item[-1] for item in ranked])[:MAX_REMOTEOK_SUMMARIES]
 

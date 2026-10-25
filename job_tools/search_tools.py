@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 from crewai.tools import tool
 from job_tools.job_history import filter_unprocessed
 from job_tools.location import normalize_search_location
+from job_tools.relevance import title_may_match
 from selenium.webdriver.support.ui import WebDriverWait
 
 def idealist_search_url(query, location):
@@ -66,7 +67,8 @@ class SearchTools():
                 "link": link
             })
 
-        unprocessed_results = filter_unprocessed(results)
+        unprocessed_results = [job for job in filter_unprocessed(results)
+                               if title_may_match(query, job["text"].splitlines()[0])]
         selected_count = min(len(unprocessed_results), top_result_to_return)
         print(
             f"Search recovered {len(results)} listings; "

@@ -12,11 +12,12 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from job_tools.job_history import extract_job_url, is_processed, job_key, record_processed
 from job_tools.prospects import extract_and_save
+from job_tools.relevance import is_relevant
 
 
 class BrowserTools:
     @tool("Scrape website content")
-    def scrape_idealist_job_details(url):
+    def scrape_idealist_job_details(url, query=None):
         """Scrape an Idealist job. Input is its URL or a listing with a link field."""
         url = extract_job_url(url)
         if is_processed(url):
@@ -57,6 +58,10 @@ class BrowserTools:
                     if application_url:
                         job_text += f"\nApplication URL: {application_url}"
                     break
+
+            if query and not is_relevant(query, title.text.strip(), job_text):
+                print(f"Skipped unrelated Idealist job: {title.text.strip()} ({url})")
+                return None
 
             safe_key = re.sub(r"[^A-Za-z0-9_-]", "_", job_key(url))[:100]
             job_dir = Path("jobs")

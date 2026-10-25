@@ -1,0 +1,58 @@
+{
+  "data analyst": {
+    "primary_title_phrases": [
+      "data analyst",
+      "business intelligence analyst",
+      "reporting analyst"
+    ],
+    "related_title_phrases": [
+      "business analyst",
+      "product analyst",
+      "operations analyst",
+      "insights analyst",
+      "research analyst"
+    ],
+    "supporting_title_terms": [
+      "analyst",
+      "analytics"
+    ],
+    "description_signals": [
+      "data analysis",
+      "analyze data",
+      "sql",
+      "dashboards",
+      "data visualization",
+      "business intelligence",
+      "reporting"
+    ]
+  },
+  "software engineer": {
+    "primary_title_phrases": [
+      "software engineer",
+      "software developer",
+      "application developer",
+      "backend engineer",
+      "frontend engineer",
+      "full stack engineer"
+    ],
+    "related_title_phrases": [
+      "web developer",
+      "mobile engineer",
+      "mobile developer"
+    ],
+    "supporting_title_terms": [
+      "engineer",
+      "developer"
+    ],
+    "description_signals": [
+      "software development",
+      "develop software",
+      "build applications",
+      "write code",
+      "programming",
+      "backend development",
+      "frontend development",
+      "api development"
+    ]
+  }
+}

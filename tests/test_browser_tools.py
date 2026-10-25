@@ -9,6 +9,31 @@ from job_tools.browser_tools import BrowserTools
 
 
 class BrowserToolsTests(unittest.TestCase):
+    def test_irrelevant_idealist_posting_is_not_saved_or_marked_processed(self):
+        url = "https://www.idealist.org/en/nonprofit-job/6965cacf0cf845ffaaae044a336111ec-financial-analyst"
+        driver = Mock()
+        driver.find_element.return_value.text = (
+            "Financial Analyst\nResponsibilities\nReview budgets.\n"
+            "Qualifications\nSQL and dashboards required."
+        )
+        driver.find_element.return_value.find_elements.return_value = []
+
+        with tempfile.TemporaryDirectory() as directory:
+            old_cwd = Path.cwd()
+            try:
+                os.chdir(directory)
+                with patch.object(job_history, "HISTORY_DB_PATH", Path(directory) / "history.sqlite3"), \
+                     patch("job_tools.browser_tools.webdriver.Chrome", return_value=driver), \
+                     patch("job_tools.browser_tools.WebDriverWait") as wait:
+                    wait.return_value.until.return_value = Mock(text="Financial Analyst")
+                    result = BrowserTools.scrape_idealist_job_details.run(url, "data analyst")
+                    self.assertIsNone(result)
+                    self.assertFalse(job_history.is_processed(url))
+                self.assertFalse(Path("jobs").exists())
+                driver.quit.assert_called_once_with()
+            finally:
+                os.chdir(old_cwd)
+
     def test_idealist_posting_is_saved_in_jobs_folder(self):
         url = (
             "https://www.idealist.org/en/nonprofit-job/"

@@ -63,7 +63,9 @@ class JobWorkflowTests(unittest.TestCase):
 
         search.search_idealist.run.assert_called_once_with("software engineer", "nyc")
         self.scrape_greenhouse.assert_called_once_with("stripe")
-        browser.scrape_idealist_job_details.run.assert_called_once_with(candidates[0]["link"])
+        browser.scrape_idealist_job_details.run.assert_called_once_with(
+            candidates[0]["link"], "software engineer"
+        )
         self.assertIn(candidates[0]["link"], output)
         self.assertIn(original_posting, output)
         self.assertIn("did not produce a job-specific summary", output)
@@ -85,6 +87,21 @@ class JobWorkflowTests(unittest.TestCase):
         browser.scrape_idealist_job_details.run.assert_not_called()
         crew.assert_not_called()
         self.record_ai_result.assert_not_called()
+
+    def test_idealist_tries_next_listing_after_relevance_rejection(self):
+        candidates = [
+            {"text": "Financial Analyst\nExample", "link": "https://example.com/1"},
+            {"text": "Data Analyst\nExample", "link": "https://example.com/2"},
+        ]
+        with patch("main.SearchTools") as search, patch("main.BrowserTools") as browser, \
+             patch("main.Crew.kickoff", return_value="SUMMARY: Data Analyst\nAnalyze data."):
+            search.search_idealist.run.return_value = json.dumps(candidates)
+            browser.scrape_idealist_job_details.run.side_effect = [None, "Analyze data."]
+            output = JobCrew("data analyst", "nyc").run()
+
+        self.assertEqual(browser.scrape_idealist_job_details.run.call_count, 2)
+        self.assertEqual(self.record_ai_result.call_args.args[0], candidates[1]["link"])
+        self.assertIn(candidates[1]["link"], output)
 
     def test_remote_choice_reaches_both_sources(self):
         with patch("main.greenhouse_candidates", return_value=[]) as candidates, \

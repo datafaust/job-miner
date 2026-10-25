@@ -184,12 +184,19 @@ class JobCrew:
       return "\n\n".join(results)
 
     selected = self._select_candidate(agents, tasks, search_results[:3], "Idealist")
-    url = selected["link"]
-    print(f"Selected job: {selected['text'].splitlines()[0]} ({url})")
-    job_text = BrowserTools.scrape_idealist_job_details.run(url)
-    if not job_text or job_text.startswith("This Idealist job was already processed"):
-      raise RuntimeError("The selected job could not be scraped.")
-    results.append(self._summarize_job(agents, tasks, selected, job_text))
+    remaining = [selected] + [job for job in search_results[:3] if job["link"] != selected["link"]]
+    for candidate in remaining:
+      url = candidate["link"]
+      job_text = BrowserTools.scrape_idealist_job_details.run(url, self.job_ask)
+      if job_text is None:
+        continue
+      if not job_text or job_text.startswith("This Idealist job was already processed"):
+        raise RuntimeError("The selected job could not be scraped.")
+      print(f"Selected job: {candidate['text'].splitlines()[0]} ({url})")
+      results.append(self._summarize_job(agents, tasks, candidate, job_text))
+      break
+    else:
+      results.append("No relevant unprocessed Idealist jobs found for this search.")
     return "\n\n".join(results)
 
   def _select_candidate(self, agents, tasks, candidates, source):

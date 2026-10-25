@@ -8,6 +8,7 @@ from pathlib import Path
 from job_tools.job_history import filter_unprocessed, is_processed, job_key, record_processed
 from job_tools.location import greenhouse_matches_location
 from job_tools.prospects import extract_and_save
+from job_tools.relevance import is_relevant, role_profile, title_strength
 
 MAX_GREENHOUSE_SUMMARIES = 2
 BOARD_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "greenhouse_boards.json"
@@ -78,10 +79,11 @@ def greenhouse_candidates(jobs, query, company="Stripe", location=None):
     }
     if not terms:
         return []
+    configured = role_profile(query) is not None
 
     title_ranked = []
     description_jobs = []
-    for job in jobs:
+    for index, job in enumerate(jobs):
         if not isinstance(job, dict):
             continue
         if location is not None and not greenhouse_matches_location(job, location):
@@ -93,22 +95,29 @@ def greenhouse_candidates(jobs, query, company="Stripe", location=None):
             continue
         if not title.strip() or not content.strip():
             continue
+        description = _description_text(content)
+        if not is_relevant(query, title, description):
+            continue
         title_terms = set(re.findall(r"[a-z0-9]+", title.casefold()))
         location_data = job.get("location") or {}
         location_name = location_data.get("name", "") if isinstance(location_data, dict) else ""
         context_terms = set(re.findall(r"[a-z0-9]+", str(location_name).casefold()))
         candidate = {"text": f"{title}\n{company}\n{location_name}", "link": url, "job": job}
         title_matches = len(terms & title_terms)
-        if title_matches:
+        if configured:
+            candidate["match_type"] = "title"
+            title_ranked.append((10 * title_strength(query, title) + title_matches,
+                                 -index, candidate))
+        elif title_matches:
             candidate["match_type"] = "title"
             score = 3 * title_matches + len(terms & context_terms)
-            title_ranked.append((score, candidate))
+            title_ranked.append((score, -index, candidate))
         else:
             candidate["match_type"] = "description"
-            description_jobs.append((candidate, context_terms, content))
+            description_jobs.append((candidate, context_terms, description))
 
     title_ranked.sort(key=lambda item: item[0], reverse=True)
-    title_candidates = filter_unprocessed([candidate for _, candidate in title_ranked])[:MAX_GREENHOUSE_SUMMARIES]
+    title_candidates = filter_unprocessed([candidate for _, _, candidate in title_ranked])[:MAX_GREENHOUSE_SUMMARIES]
     if title_candidates:
         return title_candidates
 
@@ -119,8 +128,8 @@ def greenhouse_candidates(jobs, query, company="Stripe", location=None):
         return []
     minimum_matches = min(2, len(role_terms))
     description_ranked = []
-    for candidate, context_terms, content in description_jobs:
-        content_terms = set(re.findall(r"[a-z0-9]+", _description_text(content).casefold()))
+    for candidate, context_terms, description in description_jobs:
+        content_terms = set(re.findall(r"[a-z0-9]+", description.casefold()))
         matches = len(role_terms & content_terms)
         if matches >= minimum_matches:
             score = 3 * matches + len(terms & context_terms)

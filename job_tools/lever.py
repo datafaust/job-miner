@@ -11,6 +11,7 @@ from job_tools.greenhouse import _description_text
 from job_tools.job_history import filter_unprocessed, is_processed, record_processed
 from job_tools.location import greenhouse_matches_location
 from job_tools.prospects import extract_and_save
+from job_tools.relevance import is_relevant, role_profile, title_strength
 
 
 BOARD_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "lever_boards.json"
@@ -107,6 +108,7 @@ def lever_candidates(jobs, query, company, location=None):
     terms = set(re.findall(r"[a-z0-9]+", query.casefold())) - STOP_WORDS
     if not terms:
         return []
+    configured = role_profile(query) is not None
     title_ranked, description_ranked = [], []
     role_terms = terms - {"remote", "hybrid", "onsite", "on", "site"}
     for index, job in enumerate(jobs):
@@ -115,6 +117,8 @@ def lever_candidates(jobs, query, company, location=None):
         title, url, description = job.get("text"), _posting_url(job), _description(job)
         location_name = _location(job)
         if not isinstance(title, str) or not title.strip() or not url or not description:
+            continue
+        if not is_relevant(query, title, description):
             continue
         match_locations = _location_labels(job)
         if str(job.get("workplaceType") or "").casefold() == "remote":
@@ -128,7 +132,11 @@ def lever_candidates(jobs, query, company, location=None):
         title_matches = len(terms & set(re.findall(r"[a-z0-9]+", title.casefold())))
         context_matches = len(terms & set(re.findall(r"[a-z0-9]+", context.casefold())))
         candidate = {"text": f"{title}\n{company}\n{location_name}", "link": url, "job": job}
-        if title_matches:
+        if configured:
+            candidate["match_type"] = "title"
+            title_ranked.append((10 * title_strength(query, title) + title_matches,
+                                 -index, candidate))
+        elif title_matches:
             candidate["match_type"] = "title"
             title_ranked.append((3 * title_matches + context_matches, -index, candidate))
         elif role_terms:

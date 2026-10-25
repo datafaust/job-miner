@@ -11,6 +11,7 @@ import requests
 from job_tools.greenhouse import _description_text
 from job_tools.job_history import _database, filter_unprocessed, is_processed, record_processed
 from job_tools.prospects import extract_and_save
+from job_tools.relevance import is_relevant, role_profile, title_strength
 
 API_URL = "https://remotive.com/api/remote-jobs"
 USER_AGENT = "JobWatcher/1.0 (personal job search)"
@@ -103,6 +104,7 @@ def remotive_candidates(jobs, query):
     }
     if not terms:
         return []
+    configured = role_profile(query) is not None
     ranked = []
     for index, job in enumerate(jobs):
         if not isinstance(job, dict) or job.get("id") is None or not _valid_url(job.get("url")):
@@ -110,15 +112,20 @@ def remotive_candidates(jobs, query):
         title, description = job.get("title"), job.get("description")
         if not isinstance(title, str) or not title.strip() or not isinstance(description, str) or not description.strip():
             continue
+        description_text = _description_text(description)
+        if not is_relevant(query, title, description_text):
+            continue
         title_matches = len(terms & set(re.findall(r"[a-z0-9]+", title.casefold())))
         context = " ".join((str(job.get("company_name") or ""),
-                            str(job.get("category") or ""), _description_text(description)))
+                            str(job.get("category") or ""), description_text))
         other_matches = len(terms & set(re.findall(r"[a-z0-9]+", context.casefold())))
-        if not title_matches and not other_matches:
+        if not configured and not title_matches and not other_matches:
             continue
         candidate = {"text": f"{title}\n{job.get('company_name') or ''}\nRemotive",
                      "link": job["url"], "job": job}
-        ranked.append((bool(title_matches), title_matches, other_matches, -index, candidate))
+        ranked.append((bool(title_matches) or configured,
+                       title_strength(query, title) if configured else title_matches,
+                       other_matches, -index, candidate))
     ranked.sort(reverse=True)
     return filter_unprocessed([item[-1] for item in ranked])[:MAX_REMOTIVE_SUMMARIES]
 
