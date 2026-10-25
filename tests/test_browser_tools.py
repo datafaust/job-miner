@@ -1,4 +1,5 @@
 import os
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -52,12 +53,20 @@ class BrowserToolsTests(unittest.TestCase):
                 with patch.object(job_history, "HISTORY_DB_PATH", Path(directory) / "history.sqlite3"), \
                      patch("job_tools.browser_tools.webdriver.Chrome", return_value=driver), \
                      patch("job_tools.browser_tools.WebDriverWait") as wait:
+                    Path("output.json").write_text(json.dumps([
+                        {"text": "Software Engineer", "link": url},
+                        {"text": "Other job", "link": "https://example.com/other"},
+                    ]), encoding="utf-8")
                     wait.return_value.until.return_value = title
                     result = BrowserTools.scrape_idealist_job_details.run(url)
 
                 saved_file = Path("jobs/JOB_idealist_6965cacf0cf845ffaaae044a336111ec.txt")
                 self.assertEqual(result, posting)
                 self.assertEqual(saved_file.read_text(encoding="utf-8"), posting)
+                self.assertEqual(
+                    [row["link"] for row in json.loads(Path("output.json").read_text())],
+                    ["https://example.com/other"],
+                )
                 with patch.object(job_history, "HISTORY_DB_PATH", Path(directory) / "history.sqlite3"):
                     with job_history._database() as connection:
                         detail_file = connection.execute(

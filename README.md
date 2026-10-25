@@ -4,15 +4,19 @@ Job Watcher is an early job search prototype. Its current entry point asks for a
 
 ## What happens during a run
 
-1. [`main.py`](main.py) visits each board in [`config/greenhouse_boards.json`](config/greenhouse_boards.json) and fetches its jobs with full descriptions. The entered `nyc` or `remote` choice filters Greenhouse jobs by their published location labels before ranking. Configured roles also pass through the relevance check described below. Candidates from different boards are taken in rounds, with **at most two Greenhouse jobs summarized per run** across all boards. This cap is set by `MAX_GREENHOUSE_SUMMARIES` in [`job_tools/greenhouse.py`](job_tools/greenhouse.py). A failed board request is reported, and the search continues through the remaining boards and Idealist.
+1. [`main.py`](main.py) visits each board in [`config/greenhouse_boards.json`](config/greenhouse_boards.json) and fetches its jobs with full descriptions. The entered `nyc` or `remote` choice filters Greenhouse jobs by their published location labels before ranking. Configured roles also pass through the relevance check described below. Candidates from different boards are taken in rounds, with **at most two Greenhouse jobs summarized per run** across all boards by default. A failed board request is reported, and the search continues through the remaining boards and Idealist.
 2. Each processed Greenhouse job's complete API listing is saved as `jobs/JOB_greenhouse_<board-token>_<id>.json`. Its text is given to the organizer, and its Greenhouse ID is recorded in history. Other Greenhouse postings remain eligible for later runs.
    Lever boards run next with the same location choices and a separate cap of two summaries. Their saved API listings are `jobs/JOB_lever_<site>_<id>.json`.
-3. For `nyc`, the Idealist search adds `New York City` to the keywords; this is a keyword preference, not a strict location filter. For `remote`, it uses Idealist's Remote location-type filter with the original keywords. The search reports how many listings it recovered and how many remain after filtering local history, writes the remaining listings to `output.json`, and returns up to three unprocessed listings.
-4. The selection agent in [`job_agents.py`](job_agents.py) recommends one Idealist listing. The detail tool expands the posting and checks configured-role relevance before saving it as `jobs/JOB_idealist_<id>.txt` or recording it in history. If the posting fails that check, the workflow tries the remaining shortlisted listings.
+3. For `nyc`, the Idealist search adds `New York City` to the keywords; this is a keyword preference, not a strict location filter. For `remote`, it uses Idealist's Remote location-type filter with the original keywords. The search reports how many listings it recovered and how many remain after filtering local history, writes the remaining listings to `output.json`, and returns up to three unprocessed listings by default.
+4. The selection agent in [`job_agents.py`](job_agents.py) recommends the first Idealist listing to process. The detail tool expands postings and checks configured-role relevance before saving them as `jobs/JOB_idealist_<id>.txt` and recording them in history. By default, the workflow saves one Idealist job per run; when configured to save more, it considers the rest of the shortlist in search order.
 5. For each selected posting, the organizer receives the actual posting text and can write a summary or say that a summary is unnecessary. Its decision is saved in `job_history.sqlite3`. The terminal prints the source URL, search listing, decision, and original posting text.
 6. A separate, rule-based extractor saves source-backed title, company, salary range, posting date or source age, work arrangement, and location in the `prospective_jobs` table. It runs when a posting is saved, independently of the AI summary.
 
 All saved job files go into the main `jobs/` folder in the directory where you run the command. Greenhouse postings are `JOB_greenhouse_*.json`, Lever postings are `JOB_lever_*.json`, Remote OK postings are `JOB_remoteok_*.json`, Remotive postings are `JOB_remotive_*.json`, and Idealist postings are `JOB_idealist_*.txt`. The folder is created if needed, and these files are ignored by Git. The search snapshot `output.json` remains in the directory where you run the command. Idealist uses Selenium; Greenhouse, Lever, Remote OK, and Remotive use public APIs.
+
+### Workflow limits
+
+Edit [`config/workflow_limits.json`](config/workflow_limits.json) to change per-run job caps. `idealist_candidates_per_run` controls how many filtered Idealist search results reach the selection step; `idealist_jobs_per_run` controls how many of that shortlist can be saved and summarized. The Greenhouse, Lever, Remote OK, and Remotive keys cap saved jobs for each source. Values must be positive integers, and Idealist's saved-job cap cannot exceed its candidate cap. The file is read when a Python run starts, so rerun the command after editing it. API request cooldowns are separate from these job caps.
 
 ### Role relevance
 
@@ -48,7 +52,7 @@ The existing `output.json` is not imported into the history, because it contains
 
 ### Prospective job list
 
-`prospective_jobs` is the working list for a future document or spreadsheet. It has one row per saved posting and can be updated without duplicating jobs. Missing salary or remote information stays empty or `unknown`; a city name alone is not treated as on-site. Greenhouse uses its exact `first_published` timestamp for `posted_at`. Lever uses `createdAt`, `salaryRange`, `workplaceType`, and the board's configured company name. Remotive uses `publication_date`, `salary`, and `candidate_required_location` from its API. Idealist currently supplies only a relative label such as `Published 7 days ago`, saved as `posted_text`, so read it alongside `source_saved_at` rather than as a current age. `remote_status` is one of `remote`, `hybrid`, `on_site`, or `unknown`. Exported Lever and Remotive rows include source credit and the original URL.
+`prospective_jobs` is the working list for a future document or spreadsheet. It has one row per saved posting and can be updated without duplicating jobs. Missing salary or remote information stays empty or `unknown`; a city name alone is not treated as on-site. Greenhouse uses its exact `first_published` timestamp for `posted_at`. Lever uses `createdAt`, `salaryRange`, `workplaceType`, and the board's configured company name. Remotive uses `publication_date`, `salary`, and `candidate_required_location` from its API. Idealist currently supplies only a relative label such as `Published 7 days ago`, saved as `posted_text`, so read it alongside `source_saved_at` rather than as a current age. `remote_status` is one of `remote`, `hybrid`, `on_site`, or `unknown`. Exported rows include a source label and the original URL.
 
 To refresh facts from all existing source files and export the list as JSON:
 
@@ -59,9 +63,43 @@ python -m job_tools.prospects export
 
 The second command writes `prospective_jobs.json` in the current directory. It does not contact Google or run an AI agent. The extractor uses explicit source fields and labels; an AI extraction step can be added later for ambiguous postings, with its proposed values checked against the source before saving.
 
+#### Update a worksheet in Google Drive
+
+Install the dependencies in `requirements.txt`, then enable both the [Google Drive API](https://developers.google.com/workspace/drive/api/quickstart/python) and [Google Sheets API](https://developers.google.com/workspace/sheets/api/quickstart/python) in a Google Cloud project. Configure the OAuth consent screen, add your Google account as a test user if the app is External and in testing, and create a **Desktop app OAuth client**. Download its JSON to `credentials.json` in this repository. This is an OAuth client ID and secret, not an API key; an API key cannot update your private Drive files. This command uses the [Drive `drive` scope](https://developers.google.com/workspace/drive/api/guides/api-specific-auth) so it can access an existing file you created yourself. Keep the client JSON and saved token private.
+
+Choose an existing Google Sheet or `.xlsx` file in Drive, open it, and copy the file ID from its URL (`https://docs.google.com/spreadsheets/d/FILE_ID/edit` or `https://drive.google.com/file/d/FILE_ID/view`). Set these values in `.env`:
+
+```dotenv
+GOOGLE_DRIVE_FILE_ID=FILE_ID
+GOOGLE_OAUTH_CLIENT_SECRETS_FILE=credentials.json
+GOOGLE_OAUTH_TOKEN_FILE=.google_drive_token.json
+```
+
+Then run:
+
+```sh
+python -m job_tools.prospects export
+python -m job_tools.drive_export
+```
+
+The first upload opens a browser for Google sign-in and saves the OAuth token locally for later runs. The second command adds a **Prospective jobs** worksheet if missing, or refreshes its rows if it already exists. Other worksheets stay in place. For a native Google Sheet it uses the Sheets API to update that tab's values. For an Excel `.xlsx` file it downloads and reuploads the workbook with that tab replaced. Your JSON export and Drive upload are separate commands, so rerun both to publish current database contents. Use the same Google account that owns or can edit the target file.
+
 ### Saved AI results
 
 The `job_summaries` table in `job_history.sqlite3` stores one AI result per stable job ID, linked to the saved original posting. It records the title, model, result, timestamp, and whether the model produced a summary, judged one unnecessary, or failed. A later result for the same job ID replaces the earlier one. `output.json` remains a temporary search snapshot.
+
+### Counts and history reset
+
+At the end of each `main.py` search, the terminal shows how many new jobs, prospect rows, and AI results were saved to SQLite, with counts by source. It also shows cumulative database totals and the number of saved jobs missing prospect facts. The JSON export and Drive upload print row counts by source; only saved postings are included, not every search result.
+
+To inspect totals or clear local history with a count of what was removed:
+
+```sh
+python -m job_tools.job_stats stats
+python -m job_tools.job_stats reset
+```
+
+The reset removes the local history database, saved `jobs/JOB_*` postings, search/export snapshots, and run logs. It leaves the OAuth credentials and token in place. To clear the **Prospective jobs** worksheet as well, run `python -m job_tools.prospects export` and `python -m job_tools.drive_export` after the reset.
 
 To read saved results without starting a new search or Ollama session:
 
@@ -125,7 +163,7 @@ Enter job keywords when prompted, then enter `nyc` (also accepts `New York`) or 
 
 ## Current limitations
 
-- Greenhouse and Lever each attempt summaries for at most two matching, unprocessed jobs per run. Idealist offers at most three unprocessed, title-relevant listings to the selection agent and processes one. The rule-based relevance check can miss roles with unusual titles or descriptions that lack clear responsibility text.
+- By default, Greenhouse and Lever each attempt summaries for at most two matching, unprocessed jobs per run. Idealist offers at most three unprocessed, title-relevant listings to the selection agent and processes one. Change these values in `config/workflow_limits.json`. The rule-based relevance check can miss roles with unusual titles or descriptions that lack clear responsibility text.
 - Scraping relies on fixed Idealist page selectors, which can break when the site layout changes.
 - The organizer agent has no tools of its own; it summarizes the scraped posting supplied by the workflow. Its summary should be checked against the original text printed below it.
 - Automated tests cover job history and the workflow with mocked browser and model calls; a live search still depends on Idealist, Chrome, and Ollama.

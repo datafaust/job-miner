@@ -8,9 +8,10 @@ from pathlib import Path
 from job_tools.job_history import filter_unprocessed, is_processed, job_key, record_processed
 from job_tools.location import greenhouse_matches_location
 from job_tools.prospects import extract_and_save
+from job_tools.workflow_config import LIMITS
 from job_tools.relevance import is_relevant, role_profile, title_strength
 
-MAX_GREENHOUSE_SUMMARIES = 2
+MAX_GREENHOUSE_SUMMARIES = LIMITS.greenhouse_jobs_per_run
 BOARD_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "greenhouse_boards.json"
 
 

@@ -13,6 +13,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from job_tools.job_history import extract_job_url, is_processed, job_key, record_processed
 from job_tools.prospects import extract_and_save
 from job_tools.relevance import is_relevant
+from job_tools.search_tools import prune_search_snapshot
 
 
 class BrowserTools:
@@ -73,6 +74,10 @@ class BrowserTools:
                 extract_and_save(url, str(file_path))
             except (OSError, ValueError, KeyError) as error:
                 print(f"Could not extract prospective job fields for {url}: {error}")
+            try:
+                prune_search_snapshot()
+            except (OSError, ValueError) as error:
+                print(f"Could not refresh Idealist search snapshot: {error}")
             return job_text
         finally:
             driver.quit()

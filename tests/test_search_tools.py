@@ -1,7 +1,10 @@
 import unittest
+from dataclasses import replace
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
-from job_tools.search_tools import idealist_search_url
+from job_tools.search_tools import idealist_search_url, idealist_shortlist
+from job_tools.workflow_config import LIMITS
 
 
 class SearchToolsTests(unittest.TestCase):
@@ -22,6 +25,11 @@ class SearchToolsTests(unittest.TestCase):
             idealist_search_url("data analyst", " ")
         with self.assertRaisesRegex(ValueError, "nyc.*remote"):
             idealist_search_url("data analyst", "Boston")
+
+    def test_idealist_shortlist_uses_configured_limit(self):
+        results = list(range(10))
+        with patch("job_tools.search_tools.LIMITS", replace(LIMITS, idealist_candidates_per_run=5)):
+            self.assertEqual(idealist_shortlist(results), [0, 1, 2, 3, 4])
 
 
 if __name__ == "__main__":

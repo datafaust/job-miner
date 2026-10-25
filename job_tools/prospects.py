@@ -5,9 +5,9 @@ import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlsplit
 
 from job_tools import job_history
+from job_tools.job_stats import source_counts
 
 
 SOURCE_DIR = Path(__file__).resolve().parent.parent
@@ -210,11 +210,7 @@ def list_prospects():
     )
     prospects = [dict(zip(fields, row)) for row in rows]
     for prospect in prospects:
-        host = urlsplit(prospect["url"]).hostname
-        if host in {"remotive.com", "www.remotive.com"}:
-            prospect["source"] = "Remotive"
-        elif host in {"jobs.lever.co", "jobs.eu.lever.co"}:
-            prospect["source"] = "Lever"
+        prospect["source"] = job_history.job_source(prospect["job_key"], prospect["url"])
     return prospects
 
 
@@ -231,3 +227,4 @@ if __name__ == "__main__":
             json.dumps(prospects, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         print(f"Exported {len(prospects)} jobs to {args.output}.")
+        print(f"By source: {source_counts(row['source'] for row in prospects)}.")

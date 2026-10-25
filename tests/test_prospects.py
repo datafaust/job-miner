@@ -65,6 +65,26 @@ class ProspectExtractionTests(unittest.TestCase):
         self.assertEqual(rows[0]["remote_status"], "remote")
         self.assertEqual(rows[0]["company"], "Stripe")
         self.assertIsNone(rows[0]["salary_range"])
+        self.assertEqual(rows[0]["source"], "Greenhouse")
+
+    def test_saved_idealist_job_is_labelled_in_prospects(self):
+        url = "https://www.idealist.org/en/nonprofit-job/6965cacf0cf845ffaaae044a336111ec-software-engineer"
+        source = (
+            "NONPROFIT\nPublished 11 days ago\nSoftware Engineer (Early Career)\n"
+            "Constructive Dialogue Institute\nRemote, Work can be performed from anywhere in United States\n"
+            "Salary:\nUSD $72,000 - $82,000 / year\n"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            db_path = Path(directory) / "history.sqlite3"
+            source_path = Path(directory) / "posting.txt"
+            source_path.write_text(source, encoding="utf-8")
+            with patch.object(job_history, "HISTORY_DB_PATH", db_path):
+                job_history.record_processed(url, str(source_path))
+                prospects.extract_and_save(url, str(source_path))
+                rows = prospects.list_prospects()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["source"], "Idealist")
+        self.assertEqual(rows[0]["job_title"], "Software Engineer (Early Career)")
 
 
 if __name__ == "__main__":

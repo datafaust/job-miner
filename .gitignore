@@ -24,6 +24,8 @@ JOB_remoteok_*.json
 crewai_log.txt
 summary_attempts.jsonl
 prospective_jobs.json
+credentials.json
+.google_drive_token.json
 output.txt
 element_text.txt
 

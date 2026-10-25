@@ -73,6 +73,22 @@ def job_key(url):
     return "url:" + host + (parsed.path.rstrip("/") or "/")
 
 
+def job_source(key, url):
+    """Name a saved posting's source from its stable key or original URL."""
+    if key.startswith("idealist:"):
+        return "Idealist"
+    if key.startswith("greenhouse:"):
+        return "Greenhouse"
+    if key.startswith("lever:"):
+        return "Lever"
+    host = (urlsplit(url).hostname or "").lower().removeprefix("www.")
+    if host == "remoteok.com":
+        return "Remote OK"
+    if host == "remotive.com":
+        return "Remotive"
+    return "Other"
+
+
 @contextmanager
 def _database():
     connection = sqlite3.connect(HISTORY_DB_PATH, timeout=30)

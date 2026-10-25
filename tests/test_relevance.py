@@ -27,6 +27,15 @@ class RelevanceTests(unittest.TestCase):
             "Responsibilities\nReview budgets.\nQualifications\nSQL and dashboards required."
         ))
 
+    def test_research_analyst_with_data_cleaning_and_analysis_is_relevant(self):
+        description = (
+            "Role you would play\n"
+            "Specific activities may include but are not limited to the following:\n"
+            "Data cleaning and quality assessment – cleaning administrative data.\n"
+            "Data analysis – writing reproducible code to analyze large datasets.\n"
+        )
+        self.assertTrue(is_relevant("data analyst", "Research Analyst", description))
+
     def test_description_only_and_partial_word_do_not_pass(self):
         self.assertFalse(is_relevant("data analyst", "Program Manager", "Analyze data with SQL."))
         self.assertFalse(title_may_match("data analyst", "Psychoanalyst"))

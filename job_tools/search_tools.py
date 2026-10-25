@@ -2,12 +2,14 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 import json
+from pathlib import Path
 from urllib.parse import urlencode
 #from scrape_job import scrape_idealist_job_details
 from crewai.tools import tool
 from job_tools.job_history import filter_unprocessed
 from job_tools.location import normalize_search_location
 from job_tools.relevance import title_may_match
+from job_tools.workflow_config import LIMITS
 from selenium.webdriver.support.ui import WebDriverWait
 
 def idealist_search_url(query, location):
@@ -25,13 +27,30 @@ def idealist_search_url(query, location):
     return f"https://www.idealist.org/en/jobs?{urlencode(params)}"
 
 
+def idealist_shortlist(results):
+    """Pass only the configured number of filtered results to the workflow."""
+    return results[:LIMITS.idealist_candidates_per_run]
+
+
+def prune_search_snapshot(path=Path("output.json")):
+    """Remove jobs that became processed after the Idealist search was saved."""
+    path = Path(path)
+    if not path.exists():
+        return 0
+    results = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(results, list):
+        raise ValueError("Idealist search snapshot must be a list")
+    remaining = filter_unprocessed(results)
+    path.write_text(json.dumps(remaining, ensure_ascii=False, indent=4), encoding="utf-8")
+    return len(results) - len(remaining)
+
+
 class SearchTools():
 
   @tool("Search the idealist website")
   def search_idealist(query, location):
-    """Search Idealist and return up to three jobs not already processed."""
+    """Search Idealist and return a configured number of unprocessed jobs."""
     print("SEARCHING IDEALIST WITH THE QUERY...")
-    top_result_to_return = 3
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--window-size=1920,1200")
@@ -69,18 +88,18 @@ class SearchTools():
 
         unprocessed_results = [job for job in filter_unprocessed(results)
                                if title_may_match(query, job["text"].splitlines()[0])]
-        selected_count = min(len(unprocessed_results), top_result_to_return)
+        shortlist = idealist_shortlist(unprocessed_results)
         print(
             f"Search recovered {len(results)} listings; "
             f"{len(unprocessed_results)} unprocessed; "
-            f"{selected_count} passed to the workflow."
+            f"{len(shortlist)} passed to the workflow."
         )
 
         # Keep a snapshot of the current search's unprocessed results.
         with open('output.json', 'w', encoding='utf-8') as file:
             json.dump(unprocessed_results, file, ensure_ascii=False, indent=4)
 
-        return json.dumps(unprocessed_results[:top_result_to_return], ensure_ascii=False)
+        return json.dumps(shortlist, ensure_ascii=False)
 
         # # Write the text of each element to a file
         # with open('output.txt', 'w', encoding='utf-8') as file:

@@ -11,11 +11,12 @@ from job_tools.greenhouse import _description_text
 from job_tools.job_history import filter_unprocessed, is_processed, record_processed
 from job_tools.location import greenhouse_matches_location
 from job_tools.prospects import extract_and_save
+from job_tools.workflow_config import LIMITS
 from job_tools.relevance import is_relevant, role_profile, title_strength
 
 
 BOARD_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "lever_boards.json"
-MAX_LEVER_SUMMARIES = 2
+MAX_LEVER_SUMMARIES = LIMITS.lever_jobs_per_run
 USER_AGENT = "JobWatcher/1.0 (personal job search)"
 STOP_WORDS = {"a", "an", "and", "at", "for", "in", "job", "jobs", "of", "or",
               "the", "to", "with", "looking", "work", "role", "position", "full", "time"}

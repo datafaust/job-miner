@@ -11,6 +11,7 @@ import requests
 from job_tools.greenhouse import _description_text
 from job_tools.job_history import _database, filter_unprocessed, is_processed, record_processed
 from job_tools.prospects import extract_and_save
+from job_tools.workflow_config import LIMITS
 from job_tools.relevance import is_relevant, role_profile, title_strength
 
 API_URL = "https://remotive.com/api/remote-jobs"
@@ -18,7 +19,7 @@ USER_AGENT = "JobWatcher/1.0 (personal job search)"
 REFRESH_SECONDS = 6 * 60 * 60
 MIN_REQUEST_SPACING = 31
 MAX_DAILY_REQUESTS = 4
-MAX_REMOTIVE_SUMMARIES = 2
+MAX_REMOTIVE_SUMMARIES = LIMITS.remotive_jobs_per_run
 
 
 def _valid_url(url):

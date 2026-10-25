@@ -18,12 +18,16 @@
     ],
     "description_signals": [
       "data analysis",
+      "data cleaning",
       "analyze data",
       "sql",
       "dashboards",
       "data visualization",
       "business intelligence",
-      "reporting"
+      "reporting",
+      "r",
+      "python",
+      "sas"
     ]
   },
   "software engineer": {

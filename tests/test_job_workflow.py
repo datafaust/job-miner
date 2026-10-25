@@ -1,15 +1,23 @@
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
 from main import JobCrew
 from job_tools.greenhouse import MAX_GREENHOUSE_SUMMARIES
+from job_tools.workflow_config import LIMITS
 
 
 class JobWorkflowTests(unittest.TestCase):
     def setUp(self):
+        idealist_limits_patch = patch(
+            "main.LIMITS",
+            replace(LIMITS, idealist_candidates_per_run=3, idealist_jobs_per_run=1),
+        )
+        idealist_limits_patch.start()
+        self.addCleanup(idealist_limits_patch.stop)
         log_directory = tempfile.TemporaryDirectory()
         self.addCleanup(log_directory.cleanup)
         self.summary_log = Path(log_directory.name) / "summary_attempts.jsonl"
@@ -330,6 +338,28 @@ class JobWorkflowTests(unittest.TestCase):
         self.assertEqual(self.record_ai_result.call_count, MAX_GREENHOUSE_SUMMARIES)
         self.assertNotIn(f"gh_jid={MAX_GREENHOUSE_SUMMARIES + 1}", output)
         self.assertIn("No unprocessed Idealist jobs", output)
+
+    def test_idealist_can_process_multiple_jobs_when_configured(self):
+        candidates = [
+            {"text": f"Engineer {number}\nExample", "link": f"https://example.com/{number}"}
+            for number in range(1, 5)
+        ]
+        with patch("main.LIMITS", replace(LIMITS, idealist_candidates_per_run=3,
+                                           idealist_jobs_per_run=2)), \
+             patch("main.SearchTools") as search, \
+             patch("main.BrowserTools") as browser, \
+             patch.object(JobCrew, "_select_candidate", return_value=candidates[0]), \
+             patch.object(JobCrew, "_summarize_job", return_value="summary") as summarize:
+            search.search_idealist.run.return_value = json.dumps(candidates)
+            browser.scrape_idealist_job_details.run.return_value = "Posting text"
+            JobCrew("engineer", "nyc").run()
+
+        self.assertEqual(browser.scrape_idealist_job_details.run.call_count, 2)
+        self.assertEqual(summarize.call_count, 2)
+        self.assertEqual(
+            [call.args[0] for call in browser.scrape_idealist_job_details.run.call_args_list],
+            [candidates[0]["link"], candidates[1]["link"]],
+        )
 
 
 if __name__ == "__main__":

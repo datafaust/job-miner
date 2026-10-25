@@ -14,11 +14,13 @@ from job_tasks import JobTasks
 from job_tools.browser_tools import BrowserTools
 from job_tools.greenhouse import MAX_GREENHOUSE_SUMMARIES, greenhouse_candidates, load_greenhouse_boards, save_greenhouse_job, scrape_greenhouse
 from job_tools.job_history import job_key, record_ai_result, saved_ai_results
+from job_tools.job_stats import format_run, snapshot
 from job_tools.lever import MAX_LEVER_SUMMARIES, fetch_lever_jobs, lever_candidates, load_lever_boards, save_lever_job
 from job_tools.location import normalize_search_location
 from job_tools.remoteok import fetch_remoteok_jobs, remoteok_candidates, save_remoteok_job
 from job_tools.remotive import fetch_remotive_jobs, remotive_candidates, save_remotive_job
 from job_tools.search_tools import SearchTools
+from job_tools.workflow_config import LIMITS
 
 PROJECT_DIR = Path(__file__).resolve().parent
 CREWAI_LOG_PATH = PROJECT_DIR / "crewai_log.txt"
@@ -183,8 +185,10 @@ class JobCrew:
       results.append("No unprocessed Idealist jobs found for this search.")
       return "\n\n".join(results)
 
-    selected = self._select_candidate(agents, tasks, search_results[:3], "Idealist")
-    remaining = [selected] + [job for job in search_results[:3] if job["link"] != selected["link"]]
+    shortlist = search_results[:LIMITS.idealist_candidates_per_run]
+    selected = self._select_candidate(agents, tasks, shortlist, "Idealist")
+    remaining = [selected] + [job for job in shortlist if job["link"] != selected["link"]]
+    processed_count = 0
     for candidate in remaining:
       url = candidate["link"]
       job_text = BrowserTools.scrape_idealist_job_details.run(url, self.job_ask)
@@ -194,8 +198,10 @@ class JobCrew:
         raise RuntimeError("The selected job could not be scraped.")
       print(f"Selected job: {candidate['text'].splitlines()[0]} ({url})")
       results.append(self._summarize_job(agents, tasks, candidate, job_text))
-      break
-    else:
+      processed_count += 1
+      if processed_count >= LIMITS.idealist_jobs_per_run:
+        break
+    if processed_count == 0:
       results.append("No relevant unprocessed Idealist jobs found for this search.")
     return "\n\n".join(results)
 
@@ -311,8 +317,14 @@ if __name__ == "__main__":
     parser.error(str(error))
 
   job_crew = JobCrew(job_ask, location, model=args.model)
-  result = job_crew.run()
+  before = snapshot()
+  try:
+    result = job_crew.run()
+  except Exception:
+    print("\n" + format_run(before, snapshot()))
+    raise
   print("\n\n########################")
   print("## Here are your jobs")
   print("########################\n")
   print(result)
+  print("\n" + format_run(before, snapshot()))
