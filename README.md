@@ -1,6 +1,6 @@
 # Job Watcher
 
-Job Watcher is an early job search prototype. Its current entry point asks for a job description, searches the configured Greenhouse company boards, Remote OK for remote searches, and [Idealist](https://www.idealist.org/), and uses CrewAI to choose and organize postings. Both agents use the same local Ollama model, `openhermes` by default. It prints the results in the terminal; it does not apply to jobs or run on a schedule.
+Job Watcher is an early job search prototype. Its current entry point asks for a job description, searches the configured Greenhouse company boards, Remote OK and Remotive for remote searches, and [Idealist](https://www.idealist.org/), and uses CrewAI to choose and organize postings. Both agents use the same local Ollama model, `openhermes` by default. It prints the results in the terminal; it does not apply to jobs or run on a schedule.
 
 ## What happens during a run
 
@@ -11,7 +11,7 @@ Job Watcher is an early job search prototype. Its current entry point asks for a
 5. For each selected posting, the organizer receives the actual posting text and can write a summary or say that a summary is unnecessary. Its decision is saved in `job_history.sqlite3`. The terminal prints the source URL, search listing, decision, and original posting text.
 6. A separate, rule-based extractor saves source-backed title, company, salary range, posting date or source age, work arrangement, and location in the `prospective_jobs` table. It runs when a posting is saved, independently of the AI summary.
 
-All saved job files go into the main `jobs/` folder in the directory where you run the command. Greenhouse postings are `JOB_greenhouse_*.json`, Remote OK postings are `JOB_remoteok_*.json`, and Idealist postings are `JOB_idealist_*.txt`. The folder is created if needed, and these files are ignored by Git. The search snapshot `output.json` remains in the directory where you run the command. Idealist uses Selenium; Greenhouse and Remote OK use public APIs.
+All saved job files go into the main `jobs/` folder in the directory where you run the command. Greenhouse postings are `JOB_greenhouse_*.json`, Remote OK postings are `JOB_remoteok_*.json`, Remotive postings are `JOB_remotive_*.json`, and Idealist postings are `JOB_idealist_*.txt`. The folder is created if needed, and these files are ignored by Git. The search snapshot `output.json` remains in the directory where you run the command. Idealist uses Selenium; Greenhouse, Remote OK, and Remotive use public APIs.
 
 The Greenhouse board config has one `{"company": "Name", "token": "board-token"}` entry per company. Stripe, Airbnb, and Figma are currently active; the other 47 entries are retained as `//` commented lines. Uncomment a line to include that board in the next run, or comment an active line to skip it. Each run requests every active board in config order. The company name appears in search listings, while the token is used for the API request and saved filename. The loader accepts whole-line `//` comments and a trailing comma before the closing bracket.
 
@@ -20,6 +20,12 @@ The Greenhouse board config has one `{"company": "Name", "token": "board-token"}
 When the selected location is `remote`, the workflow also searches the [Remote OK public feed](https://remoteok.com/faq). It fetches the full feed and filters keywords locally, then saves and summarizes up to two unprocessed matches. Selected API listings are stored as `jobs/JOB_remoteok_<id>.json`. Their output includes “Remote OK” credit and a link to the original Remote OK posting.
 
 The `remoteok_api_calls` table in `job_history.sqlite3` records every outbound attempt, including failures. The `remoteok_feed_cache` table holds the latest successful full feed. A new request is allowed after 90 minutes; runs during the cooldown search the cached feed. The gate also enforces at most 10 attempted requests in a rolling hour. This assumes a stable outbound IP and that this program is the only Remote OK client using it. Without a cached feed, a run during cooldown returns no Remote OK jobs.
+
+### Remotive searches
+
+For `remote` searches, the workflow also fetches the [Remotive public API](https://remotive.com/api/remote-jobs) without filters and matches keywords locally. It saves and summarizes up to two unprocessed jobs per run. Each selected listing is saved as `jobs/JOB_remotive_<id>.json`, and displayed results credit Remotive and link to the original posting. Remotive listings are delayed by 24 hours at the source. Do not republish these jobs to another job board.
+
+The `remotive_api_calls` table records outbound attempts, including failures; `remotive_feed_cache` stores successful responses by API parameter set. The request gate reuses a feed for six hours, keeps requests at least 31 seconds apart, and allows at most four attempts per rolling 24 hours. A failed request falls back to the last cached response for those parameters. Without a cached response, a gated or failed request returns no jobs. This assumes this program is the only Remotive client using the same outbound IP. The optional `search`, `category`, `company_name`, and `limit` arguments are available on `fetch_remotive_jobs` for direct use; each parameter set has a separate cache entry but shares the request gate.
 
 ### Job history
 
@@ -31,7 +37,7 @@ The existing `output.json` is not imported into the history, because it contains
 
 ### Prospective job list
 
-`prospective_jobs` is the working list for a future document or spreadsheet. It has one row per saved posting and can be updated without duplicating jobs. Missing salary or remote information stays empty or `unknown`; a city name alone is not treated as on-site. Greenhouse uses its exact `first_published` timestamp for `posted_at`. Idealist currently supplies only a relative label such as `Published 7 days ago`, saved as `posted_text`, so read it alongside `source_saved_at` rather than as a current age. `remote_status` is one of `remote`, `hybrid`, `on_site`, or `unknown`.
+`prospective_jobs` is the working list for a future document or spreadsheet. It has one row per saved posting and can be updated without duplicating jobs. Missing salary or remote information stays empty or `unknown`; a city name alone is not treated as on-site. Greenhouse uses its exact `first_published` timestamp for `posted_at`. Remotive uses `publication_date`, `salary`, and `candidate_required_location` from its API. Idealist currently supplies only a relative label such as `Published 7 days ago`, saved as `posted_text`, so read it alongside `source_saved_at` rather than as a current age. `remote_status` is one of `remote`, `hybrid`, `on_site`, or `unknown`. Exported Remotive rows include `source: "Remotive"` and the original URL.
 
 To refresh facts from all existing source files and export the list as JSON:
 
@@ -79,7 +85,7 @@ The workflow also needs:
 
 - **Ollama** running locally with the model you choose. Install Ollama, then run `ollama pull openhermes` for the default model, or substitute another model name in that command. Start the Ollama app, or use `ollama serve` if it is not already running. See the [Ollama quickstart](https://github.com/ollama/ollama/blob/main/docs/quickstart.mdx) and [`openhermes` model page](https://ollama.com/library/openhermes).
 - **Chrome.** The active search and detail tools use Selenium Manager to find or download a ChromeDriver compatible with your installed browser. The first browser launch may need internet access to fetch the driver. The old `chromedriver-mac-x64/` directory is ignored by Git and is not used by the active tools. See [Selenium Manager](https://www.selenium.dev/documentation/selenium_manager/).
-- **Internet access** to reach Idealist and Greenhouse.
+- **Internet access** to reach Idealist, Greenhouse, Remote OK, and Remotive.
 
 ## Run the job finder
 

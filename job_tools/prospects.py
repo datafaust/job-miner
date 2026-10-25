@@ -4,6 +4,7 @@ import argparse
 import json
 import re
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from job_tools import job_history
 
@@ -89,6 +90,20 @@ def extract_remoteok(job):
     }
 
 
+def extract_remotive(job):
+    location = str(job.get("candidate_required_location") or "").strip()
+    salary = str(job.get("salary") or "").strip()
+    return {
+        "job_title": str(job["title"]).strip(),
+        "company": str(job.get("company_name") or "").strip() or None,
+        "salary_range": salary or None,
+        "posted_at": job.get("publication_date") or None,
+        "posted_text": None,
+        "remote_status": "remote",
+        "location": location or None,
+    }
+
+
 def extract_and_save(url, detail_file):
     """Extract facts from the saved source and upsert them by stable job ID."""
     path = Path(detail_file)
@@ -96,7 +111,12 @@ def extract_and_save(url, detail_file):
         path = SOURCE_DIR / path
     if path.suffix == ".json":
         job = json.loads(path.read_text(encoding="utf-8"))
-        facts = extract_remoteok(job) if path.name.startswith("JOB_remoteok_") else extract_greenhouse(job)
+        if path.name.startswith("JOB_remoteok_"):
+            facts = extract_remoteok(job)
+        elif path.name.startswith("JOB_remotive_"):
+            facts = extract_remotive(job)
+        else:
+            facts = extract_greenhouse(job)
     elif path.suffix == ".txt":
         facts = extract_idealist(path.read_text(encoding="utf-8"))
     else:
@@ -156,7 +176,11 @@ def list_prospects():
         "posted_text", "remote_status", "location", "url", "source_saved_at",
         "extracted_at",
     )
-    return [dict(zip(fields, row)) for row in rows]
+    prospects = [dict(zip(fields, row)) for row in rows]
+    for prospect in prospects:
+        if urlsplit(prospect["url"]).hostname in {"remotive.com", "www.remotive.com"}:
+            prospect["source"] = "Remotive"
+    return prospects
 
 
 if __name__ == "__main__":

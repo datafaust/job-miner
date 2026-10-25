@@ -32,6 +32,9 @@ class JobWorkflowTests(unittest.TestCase):
         remote_patch = patch("main.fetch_remoteok_jobs", return_value=[])
         self.fetch_remoteok_jobs = remote_patch.start()
         self.addCleanup(remote_patch.stop)
+        remotive_patch = patch("main.fetch_remotive_jobs", return_value=[])
+        self.fetch_remotive_jobs = remotive_patch.start()
+        self.addCleanup(remotive_patch.stop)
 
     def test_unhelpful_model_output_cannot_replace_a_real_posting(self):
         candidates = [
@@ -103,6 +106,23 @@ class JobWorkflowTests(unittest.TestCase):
         candidates.assert_called_once_with([job], "data analyst")
         save.assert_called_once_with(job)
         self.assertIn("Source: Remote OK", output)
+        self.assertIn(job["url"], output)
+        self.assertEqual(self.record_ai_result.call_args.args[0], job["url"])
+
+    def test_remotive_result_is_saved_and_summarized(self):
+        job = {"id": 123, "title": "Data Analyst",
+               "url": "https://remotive.com/remote-jobs/data/data-analyst-123"}
+        candidate = {"text": "Data Analyst\nExample\nRemotive", "link": job["url"], "job": job}
+        self.fetch_remotive_jobs.return_value = [job]
+        with patch("main.remotive_candidates", return_value=[candidate]) as candidates, \
+             patch("main.save_remotive_job", return_value="Source: Remotive\nOriginal posting") as save, \
+             patch("main.SearchTools") as search, \
+             patch("main.Crew.kickoff", return_value="SUMMARY: Data Analyst\nUseful summary"):
+            search.search_idealist.run.return_value = "[]"
+            output = JobCrew("data analyst", "remote").run()
+        candidates.assert_called_once_with([job], "data analyst")
+        save.assert_called_once_with(job)
+        self.assertIn("Source: Remotive", output)
         self.assertIn(job["url"], output)
         self.assertEqual(self.record_ai_result.call_args.args[0], job["url"])
 

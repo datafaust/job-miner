@@ -16,6 +16,7 @@ from job_tools.greenhouse import MAX_GREENHOUSE_SUMMARIES, greenhouse_candidates
 from job_tools.job_history import job_key, record_ai_result, saved_ai_results
 from job_tools.location import normalize_search_location
 from job_tools.remoteok import fetch_remoteok_jobs, remoteok_candidates, save_remoteok_job
+from job_tools.remotive import fetch_remotive_jobs, remotive_candidates, save_remotive_job
 from job_tools.search_tools import SearchTools
 
 PROJECT_DIR = Path(__file__).resolve().parent
@@ -123,6 +124,19 @@ class JobCrew:
       except (OSError, ValueError) as error:
         print(f"Remote OK search failed: {error}")
 
+      try:
+        remotive_jobs = fetch_remotive_jobs()
+        remotive_matches = remotive_candidates(remotive_jobs, self.job_ask)
+        for selected in remotive_matches:
+          url = selected["link"]
+          print(f"Selected Remotive job: {selected['job']['title']} ({url})")
+          job_text = save_remotive_job(selected["job"])
+          results.append(self._summarize_job(agents, tasks, selected, job_text))
+        if not remotive_matches:
+          print("No matching unprocessed Remotive jobs found.")
+      except (OSError, ValueError) as error:
+        print(f"Remotive search failed: {error}")
+
     search_results = json.loads(SearchTools.search_idealist.run(self.job_ask, self.location))
     if not search_results:
       results.append("No unprocessed Idealist jobs found for this search.")
@@ -216,7 +230,7 @@ class JobCrew:
     )
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser(description="Find and organize Greenhouse, Remote OK, and Idealist job postings.")
+  parser = argparse.ArgumentParser(description="Find and organize Greenhouse, Remote OK, Remotive, and Idealist job postings.")
   parser.add_argument("--model", default="openhermes", help="Ollama model to use (default: openhermes)")
   parser.add_argument("--saved-summaries", action="store_true", help="Show saved AI results without searching")
   args = parser.parse_args()
@@ -226,9 +240,10 @@ if __name__ == "__main__":
     if not results:
       print("No AI results have been saved yet.")
     for key, title, model, status, result_text, saved_at, url, detail_file in results:
+      source_credit = "Credit: Remotive\n" if url.startswith(("https://remotive.com/", "https://www.remotive.com/")) else ""
       print(
         f"{title} [{status}] — {saved_at}\n"
-        f"Job ID: {key}\nModel: {model}\nSource: {url}\n"
+        f"Job ID: {key}\nModel: {model}\n{source_credit}Source: {url}\n"
         f"Original posting: {detail_file}\nAI result:\n{result_text}\n"
       )
     raise SystemExit(0)
