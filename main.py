@@ -14,6 +14,7 @@ from job_tasks import JobTasks
 from job_tools.browser_tools import BrowserTools
 from job_tools.greenhouse import MAX_GREENHOUSE_SUMMARIES, greenhouse_candidates, load_greenhouse_boards, save_greenhouse_job, scrape_greenhouse
 from job_tools.job_history import job_key, record_ai_result, saved_ai_results
+from job_tools.lever import MAX_LEVER_SUMMARIES, fetch_lever_jobs, lever_candidates, load_lever_boards, save_lever_job
 from job_tools.location import normalize_search_location
 from job_tools.remoteok import fetch_remoteok_jobs, remoteok_candidates, save_remoteok_job
 from job_tools.remotive import fetch_remotive_jobs, remotive_candidates, save_remotive_job
@@ -109,6 +110,46 @@ class JobCrew:
         results.append(self._summarize_job(agents, tasks, selected, job_text))
     else:
       print("No matching unprocessed Greenhouse jobs found.")
+
+    lever_groups = []
+    for board in load_lever_boards():
+      try:
+        jobs = fetch_lever_jobs(board["site"], eu=board.get("eu", False))
+      except (requests.RequestException, ValueError) as error:
+        print(f"Lever fetch failed for {board['company']} ({board['site']}): {error}")
+        continue
+      matches = lever_candidates(jobs, self.job_ask, board["company"], self.location)
+      lever_groups.append([(match, board["site"], board["company"]) for match in matches])
+
+    selected_lever = []
+    seen_keys = set()
+    for match_type in ("title", "description"):
+      groups = [[(match, site, company) for match, site, company in group
+                 if match["match_type"] == match_type] for group in lever_groups]
+      for row in zip_longest(*groups):
+        for item in row:
+          if item is None:
+            continue
+          match, site, company = item
+          key = job_key(match["link"])
+          if key not in seen_keys:
+            selected_lever.append((match, site, company))
+            seen_keys.add(key)
+          if len(selected_lever) == MAX_LEVER_SUMMARIES:
+            break
+        if len(selected_lever) == MAX_LEVER_SUMMARIES:
+          break
+      if len(selected_lever) == MAX_LEVER_SUMMARIES:
+        break
+
+    if selected_lever:
+      for selected, site, company in selected_lever:
+        url = selected["link"]
+        print(f"Selected Lever job: {selected['job']['text']} ({url})")
+        job_text = save_lever_job(selected["job"], site=site, company=company)
+        results.append(self._summarize_job(agents, tasks, selected, job_text))
+    else:
+      print("No matching unprocessed Lever jobs found.")
 
     if self.location == "remote":
       try:
@@ -230,7 +271,7 @@ class JobCrew:
     )
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser(description="Find and organize Greenhouse, Remote OK, Remotive, and Idealist job postings.")
+  parser = argparse.ArgumentParser(description="Find and organize Greenhouse, Lever, Remote OK, Remotive, and Idealist job postings.")
   parser.add_argument("--model", default="openhermes", help="Ollama model to use (default: openhermes)")
   parser.add_argument("--saved-summaries", action="store_true", help="Show saved AI results without searching")
   args = parser.parse_args()

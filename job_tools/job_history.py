@@ -65,6 +65,11 @@ def job_key(url):
         if match:
             return "greenhouse:" + match.group(1)
 
+    if host in {"jobs.lever.co", "jobs.eu.lever.co"}:
+        segments = parsed.path.strip("/").split("/")
+        if len(segments) >= 2 and re.fullmatch(r"[A-Za-z0-9_-]+", segments[1]):
+            return "lever:" + segments[1]
+
     return "url:" + host + (parsed.path.rstrip("/") or "/")
 
 

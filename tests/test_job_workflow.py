@@ -29,6 +29,9 @@ class JobWorkflowTests(unittest.TestCase):
         boards_patch = patch("main.load_greenhouse_boards", return_value=[{"company": "Stripe", "token": "stripe"}])
         boards_patch.start()
         self.addCleanup(boards_patch.stop)
+        lever_boards_patch = patch("main.load_lever_boards", return_value=[])
+        lever_boards_patch.start()
+        self.addCleanup(lever_boards_patch.stop)
         remote_patch = patch("main.fetch_remoteok_jobs", return_value=[])
         self.fetch_remoteok_jobs = remote_patch.start()
         self.addCleanup(remote_patch.stop)
@@ -125,6 +128,25 @@ class JobWorkflowTests(unittest.TestCase):
         self.assertIn("Source: Remotive", output)
         self.assertIn(job["url"], output)
         self.assertEqual(self.record_ai_result.call_args.args[0], job["url"])
+
+    def test_lever_result_is_saved_and_summarized(self):
+        job = {"id": "abc123", "text": "Data Analyst",
+               "hostedUrl": "https://jobs.lever.co/palantir/abc123"}
+        candidate = {"text": "Data Analyst\nPalantir\nNew York, NY",
+                     "link": job["hostedUrl"], "job": job, "match_type": "title"}
+        with patch("main.load_lever_boards", return_value=[{"company": "Palantir", "site": "palantir"}]), \
+             patch("main.fetch_lever_jobs", return_value=[job]) as fetch, \
+             patch("main.lever_candidates", return_value=[candidate]) as candidates, \
+             patch("main.save_lever_job", return_value="Original Lever posting") as save, \
+             patch("main.SearchTools") as search, \
+             patch("main.Crew.kickoff", return_value="SUMMARY: Data Analyst\nUseful summary"):
+            search.search_idealist.run.return_value = "[]"
+            output = JobCrew("data analyst", "nyc").run()
+        fetch.assert_called_once_with("palantir", eu=False)
+        candidates.assert_called_once_with([job], "data analyst", "Palantir", "nyc")
+        save.assert_called_once_with(job, site="palantir", company="Palantir")
+        self.assertIn("Original Lever posting", output)
+        self.assertEqual(self.record_ai_result.call_args.args[0], job["hostedUrl"])
 
     def test_scraped_posting_is_returned_if_organizer_fails(self):
         candidate = {

@@ -3,6 +3,7 @@
 import argparse
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -104,6 +105,35 @@ def extract_remotive(job):
     }
 
 
+def extract_lever(job):
+    categories = job.get("categories") or {}
+    location = str(categories.get("location") or "").strip() if isinstance(categories, dict) else ""
+    salary_data = job.get("salaryRange") or {}
+    salary = None
+    if isinstance(salary_data, dict) and salary_data.get("min") is not None and salary_data.get("max") is not None:
+        currency = str(salary_data.get("currency") or "").strip()
+        interval = str(salary_data.get("interval") or "").strip()
+        salary = f"{currency} {salary_data['min']:,} - {salary_data['max']:,}".strip()
+        if interval:
+            salary += f" / {interval}"
+    created_at = job.get("createdAt")
+    posted_at = None
+    if isinstance(created_at, (int, float)) and not isinstance(created_at, bool):
+        posted_at = datetime.fromtimestamp(created_at / 1000, timezone.utc).isoformat()
+    workplace = str(job.get("workplaceType") or "").casefold()
+    remote_status = {"remote": "remote", "hybrid": "hybrid", "on-site": "on_site", "onsite": "on_site"}.get(
+        workplace, _remote_status(location))
+    return {
+        "job_title": str(job["text"]).strip(),
+        "company": str(job.get("_job_watcher_company") or "").strip() or None,
+        "salary_range": salary,
+        "posted_at": posted_at,
+        "posted_text": None,
+        "remote_status": remote_status,
+        "location": location or None,
+    }
+
+
 def extract_and_save(url, detail_file):
     """Extract facts from the saved source and upsert them by stable job ID."""
     path = Path(detail_file)
@@ -115,6 +145,8 @@ def extract_and_save(url, detail_file):
             facts = extract_remoteok(job)
         elif path.name.startswith("JOB_remotive_"):
             facts = extract_remotive(job)
+        elif path.name.startswith("JOB_lever_"):
+            facts = extract_lever(job)
         else:
             facts = extract_greenhouse(job)
     elif path.suffix == ".txt":
@@ -178,8 +210,11 @@ def list_prospects():
     )
     prospects = [dict(zip(fields, row)) for row in rows]
     for prospect in prospects:
-        if urlsplit(prospect["url"]).hostname in {"remotive.com", "www.remotive.com"}:
+        host = urlsplit(prospect["url"]).hostname
+        if host in {"remotive.com", "www.remotive.com"}:
             prospect["source"] = "Remotive"
+        elif host in {"jobs.lever.co", "jobs.eu.lever.co"}:
+            prospect["source"] = "Lever"
     return prospects
 
 
