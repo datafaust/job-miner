@@ -1,6 +1,6 @@
 # Job Watcher
 
-Job Watcher is an early job search prototype. Its current entry point asks for a job description, searches the configured Greenhouse company boards and [Idealist](https://www.idealist.org/), and uses CrewAI to choose and organize postings. Both agents use the same local Ollama model, `openhermes` by default. It prints the results in the terminal; it does not apply to jobs or run on a schedule.
+Job Watcher is an early job search prototype. Its current entry point asks for a job description, searches the configured Greenhouse company boards, Remote OK for remote searches, and [Idealist](https://www.idealist.org/), and uses CrewAI to choose and organize postings. Both agents use the same local Ollama model, `openhermes` by default. It prints the results in the terminal; it does not apply to jobs or run on a schedule.
 
 ## What happens during a run
 
@@ -11,9 +11,15 @@ Job Watcher is an early job search prototype. Its current entry point asks for a
 5. For each selected posting, the organizer receives the actual posting text and can write a summary or say that a summary is unnecessary. Its decision is saved in `job_history.sqlite3`. The terminal prints the source URL, search listing, decision, and original posting text.
 6. A separate, rule-based extractor saves source-backed title, company, salary range, posting date or source age, work arrangement, and location in the `prospective_jobs` table. It runs when a posting is saved, independently of the AI summary.
 
-All saved job files go into the main `jobs/` folder in the directory where you run the command. Greenhouse postings are `JOB_greenhouse_*.json`, and Idealist postings are `JOB_idealist_*.txt`. The folder is created if needed, and these files are ignored by Git. The search snapshot `output.json` remains in the directory where you run the command. Idealist uses Selenium; Greenhouse uses its public API.
+All saved job files go into the main `jobs/` folder in the directory where you run the command. Greenhouse postings are `JOB_greenhouse_*.json`, Remote OK postings are `JOB_remoteok_*.json`, and Idealist postings are `JOB_idealist_*.txt`. The folder is created if needed, and these files are ignored by Git. The search snapshot `output.json` remains in the directory where you run the command. Idealist uses Selenium; Greenhouse and Remote OK use public APIs.
 
 The Greenhouse board config has one `{"company": "Name", "token": "board-token"}` entry per company. Stripe, Airbnb, and Figma are currently active; the other 47 entries are retained as `//` commented lines. Uncomment a line to include that board in the next run, or comment an active line to skip it. Each run requests every active board in config order. The company name appears in search listings, while the token is used for the API request and saved filename. The loader accepts whole-line `//` comments and a trailing comma before the closing bracket.
+
+### Remote OK searches
+
+When the selected location is `remote`, the workflow also searches the [Remote OK public feed](https://remoteok.com/faq). It fetches the full feed and filters keywords locally, then saves and summarizes up to two unprocessed matches. Selected API listings are stored as `jobs/JOB_remoteok_<id>.json`. Their output includes “Remote OK” credit and a link to the original Remote OK posting.
+
+The `remoteok_api_calls` table in `job_history.sqlite3` records every outbound attempt, including failures. The `remoteok_feed_cache` table holds the latest successful full feed. A new request is allowed after 90 minutes; runs during the cooldown search the cached feed. The gate also enforces at most 10 attempted requests in a rolling hour. This assumes a stable outbound IP and that this program is the only Remote OK client using it. Without a cached feed, a run during cooldown returns no Remote OK jobs.
 
 ### Job history
 

@@ -72,13 +72,31 @@ def extract_idealist(text):
     }
 
 
+def extract_remoteok(job):
+    location = str(job.get("location") or "").strip()
+    salary_min, salary_max = job.get("salary_min"), job.get("salary_max")
+    salary = None
+    if salary_min and salary_max:
+        salary = f"${int(salary_min):,} - ${int(salary_max):,}"
+    return {
+        "job_title": str(job["position"]).strip(),
+        "company": str(job.get("company") or "").strip() or None,
+        "salary_range": salary,
+        "posted_at": job.get("date") or None,
+        "posted_text": None,
+        "remote_status": "remote",
+        "location": location or None,
+    }
+
+
 def extract_and_save(url, detail_file):
     """Extract facts from the saved source and upsert them by stable job ID."""
     path = Path(detail_file)
     if not path.is_absolute() and not path.exists():
         path = SOURCE_DIR / path
     if path.suffix == ".json":
-        facts = extract_greenhouse(json.loads(path.read_text(encoding="utf-8")))
+        job = json.loads(path.read_text(encoding="utf-8"))
+        facts = extract_remoteok(job) if path.name.startswith("JOB_remoteok_") else extract_greenhouse(job)
     elif path.suffix == ".txt":
         facts = extract_idealist(path.read_text(encoding="utf-8"))
     else:

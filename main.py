@@ -15,6 +15,7 @@ from job_tools.browser_tools import BrowserTools
 from job_tools.greenhouse import MAX_GREENHOUSE_SUMMARIES, greenhouse_candidates, load_greenhouse_boards, save_greenhouse_job, scrape_greenhouse
 from job_tools.job_history import job_key, record_ai_result, saved_ai_results
 from job_tools.location import normalize_search_location
+from job_tools.remoteok import fetch_remoteok_jobs, remoteok_candidates, save_remoteok_job
 from job_tools.search_tools import SearchTools
 
 PROJECT_DIR = Path(__file__).resolve().parent
@@ -107,6 +108,20 @@ class JobCrew:
         results.append(self._summarize_job(agents, tasks, selected, job_text))
     else:
       print("No matching unprocessed Greenhouse jobs found.")
+
+    if self.location == "remote":
+      try:
+        remote_jobs = fetch_remoteok_jobs()
+        remote_matches = remoteok_candidates(remote_jobs, self.job_ask)
+        for selected in remote_matches:
+          url = selected["link"]
+          print(f"Selected Remote OK job: {selected['job']['position']} ({url})")
+          job_text = save_remoteok_job(selected["job"])
+          results.append(self._summarize_job(agents, tasks, selected, job_text))
+        if not remote_matches:
+          print("No matching unprocessed Remote OK jobs found.")
+      except (OSError, ValueError) as error:
+        print(f"Remote OK search failed: {error}")
 
     search_results = json.loads(SearchTools.search_idealist.run(self.job_ask, self.location))
     if not search_results:
@@ -201,7 +216,7 @@ class JobCrew:
     )
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser(description="Find and organize configured Greenhouse and Idealist job postings.")
+  parser = argparse.ArgumentParser(description="Find and organize Greenhouse, Remote OK, and Idealist job postings.")
   parser.add_argument("--model", default="openhermes", help="Ollama model to use (default: openhermes)")
   parser.add_argument("--saved-summaries", action="store_true", help="Show saved AI results without searching")
   args = parser.parse_args()

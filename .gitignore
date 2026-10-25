@@ -20,6 +20,7 @@ output.json
 job_history.sqlite3*
 JOB_*.txt
 JOB_greenhouse_*.json
+JOB_remoteok_*.json
 crewai_log.txt
 summary_attempts.jsonl
 prospective_jobs.json

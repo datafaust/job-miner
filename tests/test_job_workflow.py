@@ -29,6 +29,9 @@ class JobWorkflowTests(unittest.TestCase):
         boards_patch = patch("main.load_greenhouse_boards", return_value=[{"company": "Stripe", "token": "stripe"}])
         boards_patch.start()
         self.addCleanup(boards_patch.stop)
+        remote_patch = patch("main.fetch_remoteok_jobs", return_value=[])
+        self.fetch_remoteok_jobs = remote_patch.start()
+        self.addCleanup(remote_patch.stop)
 
     def test_unhelpful_model_output_cannot_replace_a_real_posting(self):
         candidates = [
@@ -86,6 +89,22 @@ class JobWorkflowTests(unittest.TestCase):
 
         candidates.assert_called_once_with([{"title": "Example"}], "data analyst", "Stripe", "remote")
         search.search_idealist.run.assert_called_once_with("data analyst", "remote")
+
+    def test_remoteok_result_is_saved_and_summarized(self):
+        job = {"id": "123", "position": "Data Analyst", "url": "https://remoteok.com/remote-jobs/123-data-analyst"}
+        candidate = {"text": "Data Analyst\nExample\nRemote OK", "link": job["url"], "job": job}
+        self.fetch_remoteok_jobs.return_value = [job]
+        with patch("main.remoteok_candidates", return_value=[candidate]) as candidates, \
+             patch("main.save_remoteok_job", return_value="Source: Remote OK\nOriginal posting") as save, \
+             patch("main.SearchTools") as search, \
+             patch("main.Crew.kickoff", return_value="SUMMARY: Data Analyst\nUseful summary"):
+            search.search_idealist.run.return_value = "[]"
+            output = JobCrew("data analyst", "remote").run()
+        candidates.assert_called_once_with([job], "data analyst")
+        save.assert_called_once_with(job)
+        self.assertIn("Source: Remote OK", output)
+        self.assertIn(job["url"], output)
+        self.assertEqual(self.record_ai_result.call_args.args[0], job["url"])
 
     def test_scraped_posting_is_returned_if_organizer_fails(self):
         candidate = {
