@@ -63,11 +63,11 @@ python -m job_tools.prospects export
 
 The second command writes `prospective_jobs.json` in the current directory. It does not contact Google or run an AI agent. The extractor uses explicit source fields and labels; an AI extraction step can be added later for ambiguous postings, with its proposed values checked against the source before saving.
 
-#### Update a worksheet in Google Drive
+#### Add jobs to a worksheet in Google Drive
 
 Install the dependencies in `requirements.txt`, then enable both the [Google Drive API](https://developers.google.com/workspace/drive/api/quickstart/python) and [Google Sheets API](https://developers.google.com/workspace/sheets/api/quickstart/python) in a Google Cloud project. Configure the OAuth consent screen, add your Google account as a test user if the app is External and in testing, and create a **Desktop app OAuth client**. Download its JSON to `credentials.json` in this repository. This is an OAuth client ID and secret, not an API key; an API key cannot update your private Drive files. This command uses the [Drive `drive` scope](https://developers.google.com/workspace/drive/api/guides/api-specific-auth) so it can access an existing file you created yourself. Keep the client JSON and saved token private.
 
-Choose an existing Google Sheet or `.xlsx` file in Drive, open it, and copy the file ID from its URL (`https://docs.google.com/spreadsheets/d/FILE_ID/edit` or `https://drive.google.com/file/d/FILE_ID/view`). Set these values in `.env`:
+To use an existing Google Sheet or `.xlsx` file in Drive, copy the file ID from its URL (`https://docs.google.com/spreadsheets/d/FILE_ID/edit` or `https://drive.google.com/file/d/FILE_ID/view`). To create a new Google Sheet on the first export, leave `GOOGLE_DRIVE_FILE_ID` empty. Set these values in `.env`:
 
 ```dotenv
 GOOGLE_DRIVE_FILE_ID=FILE_ID
@@ -82,7 +82,7 @@ python -m job_tools.prospects export
 python -m job_tools.drive_export
 ```
 
-The first upload opens a browser for Google sign-in and saves the OAuth token locally for later runs. The second command adds a **Prospective jobs** worksheet if missing, or refreshes its rows if it already exists. Other worksheets stay in place. For a native Google Sheet it uses the Sheets API to update that tab's values. For an Excel `.xlsx` file it downloads and reuploads the workbook with that tab replaced. Your JSON export and Drive upload are separate commands, so rerun both to publish current database contents. Use the same Google account that owns or can edit the target file.
+The first upload opens a browser for Google sign-in and saves the OAuth token locally for later runs. If no file ID is configured, or Google returns 404 for the configured ID, it creates a Google Sheet named **Job Watcher** and saves its ID to `.env`. The exporter creates the **Prospective jobs** tab if missing. Later exports keep existing rows and add only jobs whose stable job key or URL is not already present. Existing job rows, manual notes, and other tabs remain in place; an empty JSON export does not clear the sheet. For an Excel `.xlsx` file, the exporter downloads and reuploads the workbook only when it has new jobs or needs to create the tab. Your JSON export and Drive upload are separate commands, so rerun both to publish new jobs. Use the same Google account that owns or can edit the target file.
 
 ### Saved AI results
 
@@ -99,7 +99,7 @@ python -m job_tools.job_stats stats
 python -m job_tools.job_stats reset
 ```
 
-The reset removes the local history database, saved `jobs/JOB_*` postings, search/export snapshots, and run logs. It leaves the OAuth credentials and token in place. To clear the **Prospective jobs** worksheet as well, run `python -m job_tools.prospects export` and `python -m job_tools.drive_export` after the reset.
+The reset removes the local history database, saved `jobs/JOB_*` postings, search/export snapshots, and run logs. It leaves the OAuth credentials and token in place. The Drive exporter preserves existing rows, so resetting local history does not clear the **Prospective jobs** worksheet.
 
 To read saved results without starting a new search or Ollama session:
 
