@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import unittest
 from dataclasses import replace
@@ -6,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from main import JobCrew
+from job_tools import job_history, prospects
 from job_tools.greenhouse import MAX_GREENHOUSE_SUMMARIES
 from job_tools.workflow_config import LIMITS
 
@@ -40,6 +42,9 @@ class JobWorkflowTests(unittest.TestCase):
         lever_boards_patch = patch("main.load_lever_boards", return_value=[])
         lever_boards_patch.start()
         self.addCleanup(lever_boards_patch.stop)
+        ashby_boards_patch = patch("main.load_ashby_boards", return_value=[])
+        ashby_boards_patch.start()
+        self.addCleanup(ashby_boards_patch.stop)
         remote_patch = patch("main.fetch_remoteok_jobs", return_value=[])
         self.fetch_remoteok_jobs = remote_patch.start()
         self.addCleanup(remote_patch.stop)
@@ -95,6 +100,33 @@ class JobWorkflowTests(unittest.TestCase):
         browser.scrape_idealist_job_details.run.assert_not_called()
         crew.assert_not_called()
         self.record_ai_result.assert_not_called()
+
+    def test_no_summary_still_saves_job_and_prospect_without_ai_result(self):
+        job = {
+            "id": 8172487, "title": "Data Analyst",
+            "absolute_url": "https://boards.greenhouse.io/stripe/jobs/8172487",
+            "location": {"name": "New York, NY"},
+            "content": "<p>Analyze data and build dashboards.</p>",
+        }
+        self.scrape_greenhouse.return_value = [job]
+        with tempfile.TemporaryDirectory() as directory:
+            old_cwd = Path.cwd()
+            try:
+                os.chdir(directory)
+                with patch.object(job_history, "HISTORY_DB_PATH", Path(directory) / "history.sqlite3"), \
+                     patch("main.SearchTools") as search, patch("main.Crew") as crew:
+                    search.search_idealist.run.return_value = "[]"
+                    output = JobCrew("data analyst", "nyc", summarize=False).run()
+                    self.assertTrue(job_history.is_processed(job["absolute_url"]))
+                    self.assertEqual(prospects.list_prospects()[0]["job_title"], "Data Analyst")
+                    self.assertEqual(job_history.saved_ai_results(), [])
+                    crew.assert_not_called()
+                    self.record_ai_result.assert_not_called()
+                    self.assertFalse(self.summary_log.exists())
+                    self.assertIn("Original posting text:", output)
+                    self.assertNotIn("AI result:", output)
+            finally:
+                os.chdir(old_cwd)
 
     def test_idealist_tries_next_listing_after_relevance_rejection(self):
         candidates = [
@@ -172,6 +204,25 @@ class JobWorkflowTests(unittest.TestCase):
         save.assert_called_once_with(job, site="palantir", company="Palantir")
         self.assertIn("Original Lever posting", output)
         self.assertEqual(self.record_ai_result.call_args.args[0], job["hostedUrl"])
+
+    def test_ashby_result_is_saved_and_summarized(self):
+        url = "https://jobs.ashbyhq.com/ramp/11111111-1111-1111-1111-111111111111"
+        job = {"title": "Data Analyst", "jobUrl": url}
+        candidate = {"text": "Data Analyst\nRamp\nNew York, NY", "link": url,
+                     "job": job, "match_type": "title"}
+        with patch("main.load_ashby_boards", return_value=[{"company": "Ramp", "board": "ramp"}]), \
+             patch("main.fetch_ashby_jobs", return_value=[job]) as fetch, \
+             patch("main.ashby_candidates", return_value=[candidate]) as candidates, \
+             patch("main.save_ashby_job", return_value="Original Ashby posting") as save, \
+             patch("main.SearchTools") as search, \
+             patch("main.Crew.kickoff", return_value="SUMMARY: Data Analyst\nUseful summary"):
+            search.search_idealist.run.return_value = "[]"
+            output = JobCrew("data analyst", "nyc").run()
+        fetch.assert_called_once_with("ramp")
+        candidates.assert_called_once_with([job], "data analyst", "Ramp", "nyc")
+        save.assert_called_once_with(job, board="ramp", company="Ramp")
+        self.assertIn("Original Ashby posting", output)
+        self.assertEqual(self.record_ai_result.call_args.args[0], url)
 
     def test_scraped_posting_is_returned_if_organizer_fails(self):
         candidate = {

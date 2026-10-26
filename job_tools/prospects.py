@@ -134,6 +134,22 @@ def extract_lever(job):
     }
 
 
+def extract_ashby(job):
+    compensation = job.get("compensation") or {}
+    salary = compensation.get("scrapeableCompensationSalarySummary") if isinstance(compensation, dict) else None
+    workplace = str(job.get("workplaceType") or "").casefold()
+    location = str(job.get("location") or "").strip()
+    return {
+        "job_title": str(job["title"]).strip(),
+        "company": str(job.get("_job_watcher_company") or "").strip() or None,
+        "salary_range": salary.strip() if isinstance(salary, str) and salary.strip() else None,
+        "posted_at": job.get("publishedAt") or None,
+        "posted_text": None,
+        "remote_status": {"remote": "remote", "hybrid": "hybrid", "onsite": "on_site"}.get(workplace, _remote_status(location)),
+        "location": location or None,
+    }
+
+
 def extract_and_save(url, detail_file):
     """Extract facts from the saved source and upsert them by stable job ID."""
     path = Path(detail_file)
@@ -147,6 +163,8 @@ def extract_and_save(url, detail_file):
             facts = extract_remotive(job)
         elif path.name.startswith("JOB_lever_"):
             facts = extract_lever(job)
+        elif path.name.startswith("JOB_ashby_"):
+            facts = extract_ashby(job)
         else:
             facts = extract_greenhouse(job)
     elif path.suffix == ".txt":

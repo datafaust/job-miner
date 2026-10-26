@@ -16,6 +16,8 @@ env/
 htmlcov/
 
 # Generated job search and scraping results
+jobs/*
+!jobs/.gitkeep
 output.json
 job_history.sqlite3*
 JOB_*.txt

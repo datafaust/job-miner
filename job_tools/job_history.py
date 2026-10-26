@@ -70,6 +70,11 @@ def job_key(url):
         if len(segments) >= 2 and re.fullmatch(r"[A-Za-z0-9_-]+", segments[1]):
             return "lever:" + segments[1]
 
+    if host == "jobs.ashbyhq.com":
+        segments = parsed.path.strip("/").split("/")
+        if len(segments) >= 2 and re.fullmatch(r"[0-9a-fA-F-]{36}", segments[1]):
+            return "ashby:" + segments[0].casefold() + ":" + segments[1].lower()
+
     return "url:" + host + (parsed.path.rstrip("/") or "/")
 
 
@@ -81,6 +86,8 @@ def job_source(key, url):
         return "Greenhouse"
     if key.startswith("lever:"):
         return "Lever"
+    if key.startswith("ashby:"):
+        return "Ashby"
     host = (urlsplit(url).hostname or "").lower().removeprefix("www.")
     if host == "remoteok.com":
         return "Remote OK"

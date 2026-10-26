@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from job_agents import JobAgents
 from job_tasks import JobTasks
 from job_tools.browser_tools import BrowserTools
+from job_tools.ashby import MAX_ASHBY_SUMMARIES, ashby_candidates, fetch_ashby_jobs, load_ashby_boards, save_ashby_job
 from job_tools.greenhouse import MAX_GREENHOUSE_SUMMARIES, greenhouse_candidates, load_greenhouse_boards, save_greenhouse_job, scrape_greenhouse
 from job_tools.job_history import job_key, record_ai_result, saved_ai_results
 from job_tools.job_stats import format_run, snapshot
@@ -60,10 +61,11 @@ def log_summary_attempt(url, title, model, raw_output, status, reason, error=Non
 
 class JobCrew:
 
-  def __init__(self, job_ask, location, model="openhermes"):
+  def __init__(self, job_ask, location, model="openhermes", summarize=True):
     self.job_ask = job_ask
     self.location = location
     self.model = model
+    self.summarize = summarize
 
   def run(self):
     agents = JobAgents(model=self.model)
@@ -153,6 +155,46 @@ class JobCrew:
     else:
       print("No matching unprocessed Lever jobs found.")
 
+    ashby_groups = []
+    for board in load_ashby_boards():
+      try:
+        jobs = fetch_ashby_jobs(board["board"])
+      except (requests.RequestException, ValueError) as error:
+        print(f"Ashby fetch failed for {board['company']} ({board['board']}): {error}")
+        continue
+      matches = ashby_candidates(jobs, self.job_ask, board["company"], self.location)
+      ashby_groups.append([(match, board["board"], board["company"]) for match in matches])
+
+    selected_ashby = []
+    seen_keys = set()
+    for match_type in ("title", "description"):
+      groups = [[(match, board, company) for match, board, company in group
+                 if match["match_type"] == match_type] for group in ashby_groups]
+      for row in zip_longest(*groups):
+        for item in row:
+          if item is None:
+            continue
+          match, board, company = item
+          key = job_key(match["link"])
+          if key not in seen_keys:
+            selected_ashby.append((match, board, company))
+            seen_keys.add(key)
+          if len(selected_ashby) == MAX_ASHBY_SUMMARIES:
+            break
+        if len(selected_ashby) == MAX_ASHBY_SUMMARIES:
+          break
+      if len(selected_ashby) == MAX_ASHBY_SUMMARIES:
+        break
+
+    if selected_ashby:
+      for selected, board, company in selected_ashby:
+        url = selected["link"]
+        print(f"Selected Ashby job: {selected['job']['title']} ({url})")
+        job_text = save_ashby_job(selected["job"], board=board, company=company)
+        results.append(self._summarize_job(agents, tasks, selected, job_text))
+    else:
+      print("No matching unprocessed Ashby jobs found.")
+
     if self.location == "remote":
       try:
         remote_jobs = fetch_remoteok_jobs()
@@ -229,6 +271,11 @@ class JobCrew:
 
   def _summarize_job(self, agents, tasks, selected, job_text):
     url = selected["link"]
+    if not self.summarize:
+      return (
+        f"Source: {url}\n\nSearch listing:\n{selected['text']}\n\n"
+        f"Original posting text:\n{job_text}"
+      )
     organizer = agents.job_information_organizer()
     job_title = selected["text"].splitlines()[0].strip()
     gather_task = tasks.gather_task(organizer, job_text, url, job_title)
@@ -284,8 +331,9 @@ class JobCrew:
     )
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser(description="Find and organize Greenhouse, Lever, Remote OK, Remotive, and Idealist job postings.")
+  parser = argparse.ArgumentParser(description="Find and organize Greenhouse, Lever, Ashby, Remote OK, Remotive, and Idealist job postings.")
   parser.add_argument("--model", default="openhermes", help="Ollama model to use (default: openhermes)")
+  parser.add_argument("--no-summary", action="store_true", help="Save matching jobs without AI summaries")
   parser.add_argument("--saved-summaries", action="store_true", help="Show saved AI results without searching")
   args = parser.parse_args()
 
@@ -316,7 +364,7 @@ if __name__ == "__main__":
   except ValueError as error:
     parser.error(str(error))
 
-  job_crew = JobCrew(job_ask, location, model=args.model)
+  job_crew = JobCrew(job_ask, location, model=args.model, summarize=not args.no_summary)
   before = snapshot()
   try:
     result = job_crew.run()

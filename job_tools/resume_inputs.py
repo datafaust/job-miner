@@ -7,6 +7,7 @@ from pathlib import Path
 from job_tools.greenhouse import _description_text
 from job_tools.job_history import job_key, saved_job
 from job_tools.lever import _description as lever_description
+from job_tools.ashby import _description as ashby_description
 
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
@@ -34,6 +35,12 @@ def _json_posting(job):
         location = location.get("name") if isinstance(location, dict) else None
         header = [title, _optional_text(job.get("company_name")), _optional_text(location)]
         source = "greenhouse"
+    elif "jobUrl" in job and "title" in job:
+        title = _required_text(job.get("title"), "title")
+        url = _optional_text(job.get("jobUrl") or job.get("applyUrl"))
+        description = ashby_description(job)
+        header = [title, _optional_text(job.get("_job_watcher_company")), _optional_text(job.get("location"))]
+        source = "ashby"
     elif "lists" in job or "descriptionPlain" in job or "hostedUrl" in job:
         title = _required_text(job.get("text"), "text")
         url = _optional_text(job.get("hostedUrl") or job.get("applyUrl"))

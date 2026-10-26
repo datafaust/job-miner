@@ -12,6 +12,7 @@ CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "workflow_limi
 class WorkflowLimits:
     greenhouse_jobs_per_run: int
     lever_jobs_per_run: int
+    ashby_jobs_per_run: int
     remoteok_jobs_per_run: int
     remotive_jobs_per_run: int
     idealist_candidates_per_run: int
