@@ -6,6 +6,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 from job_tools.job_history import filter_unprocessed, is_processed, job_key, record_processed
+from job_tools.board_http import get_board
 from job_tools.location import greenhouse_matches_location
 from job_tools.prospects import extract_and_save
 from job_tools.workflow_config import LIMITS
@@ -61,7 +62,7 @@ def _description_text(content):
 
 def scrape_greenhouse(board_token="stripe"):
     """Fetch a Greenhouse board's jobs with their full descriptions."""
-    response = requests.get(
+    response = get_board(
         f"https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs",
         params={"content": "true"},
         timeout=30,

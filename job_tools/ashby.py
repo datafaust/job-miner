@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 import requests
 
 from job_tools.greenhouse import _description_text
+from job_tools.board_http import get_board
 from job_tools.job_history import filter_unprocessed, is_processed, job_key, record_processed
 from job_tools.location import greenhouse_matches_location
 from job_tools.prospects import extract_and_save
@@ -48,7 +49,7 @@ def load_ashby_boards(path=BOARD_CONFIG_PATH):
 def fetch_ashby_jobs(board, timeout=30):
     if not _valid_board(board):
         raise ValueError("Ashby board must be a valid board slug")
-    response = requests.get(
+    response = get_board(
         f"https://api.ashbyhq.com/posting-api/job-board/{board}",
         params={"includeCompensation": "true"},
         headers={"User-Agent": USER_AGENT}, timeout=timeout,

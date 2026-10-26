@@ -90,7 +90,6 @@
   {"company": "Split", "site": "split"},
   {"company": "Optimizely", "site": "optimizely"},
   {"company": "Statsig", "site": "statsig"},
-  {"company": "Amplitude", "site": "amplitude"},
   {"company": "Heap", "site": "heap"},
   {"company": "FullStory", "site": "fullstory"},
   {"company": "Hotjar", "site": "hotjar"},
@@ -104,13 +103,9 @@
   {"company": "Aha!", "site": "aha"},
   {"company": "ProductPlan", "site": "productplan"},
   {"company": "Roadmunk", "site": "roadmunk"},
-  {"company": "Jira", "site": "atlassian"},
   {"company": "Trello", "site": "trello"},
   {"company": "Basecamp", "site": "basecamp"},
-  {"company": "Height", "site": "height"},
   {"company": "Shortcut", "site": "shortcut"},
   {"company": "Clubhouse", "site": "clubhouse"},
-  {"company": "Linear", "site": "linear"},
-  {"company": "Plane", "site": "plane"},
-  {"company": "Height", "site": "height"}
+  {"company": "Plane", "site": "plane"}
 ]

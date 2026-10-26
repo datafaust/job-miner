@@ -41,7 +41,9 @@ Edit [`config/workflow_limits.json`](config/workflow_limits.json) to change per-
 
 For these configured roles, relevance is checked before per-source summary limits and before saving. Idealist listing titles are screened before details are opened, then the full posting is checked before persistence. Rejected postings are not marked processed, so changing the config can make them eligible on a later run. Search requests without a configured role keep the previous keyword matching behavior. Add a role profile to enable the stricter rule for that search.
 
-The Greenhouse board config has one `{"company": "Name", "token": "board-token"}` entry per company. Stripe, Airbnb, and Figma are currently active; the other 47 entries are retained as `//` commented lines. Uncomment a line to include that board in the next run, or comment an active line to skip it. Each run requests every active board in config order. The company name appears in search listings, while the token is used for the API request and saved filename. The loader accepts whole-line `//` comments and a trailing comma before the closing bracket.
+The Greenhouse board config has one `{"company": "Name", "token": "board-token"}` entry per company. Uncomment a line to include that board in the next run, or comment an active line to skip it. Each run requests every active board in config order. The company name appears in search listings, while the token is used for the API request and saved filename. The loader accepts whole-line `//` comments and a trailing comma before the closing bracket.
+
+Greenhouse, Lever, and Ashby board requests use a shared 0.25-second minimum interval and retry temporary network errors, HTTP 429, and common HTTP 5xx responses up to three attempts. A `Retry-After` header is honored when it asks for at most 30 seconds; longer waits leave that board failed so the run can continue. Set `JOB_BOARD_REQUEST_INTERVAL_SECONDS` in `.env` to change the interval (use `0` to disable it).
 
 ### Lever searches
 

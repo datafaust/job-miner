@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 import requests
 
 from job_tools.greenhouse import _description_text
+from job_tools.board_http import get_board
 from job_tools.job_history import filter_unprocessed, is_processed, record_processed
 from job_tools.location import greenhouse_matches_location
 from job_tools.prospects import extract_and_save
@@ -48,7 +49,7 @@ def fetch_lever_jobs(site, eu=False, timeout=30):
     if not isinstance(site, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", site):
         raise ValueError("Lever site must be a valid board slug")
     host = "api.eu.lever.co" if eu else "api.lever.co"
-    response = requests.get(f"https://{host}/v0/postings/{site}",
+    response = get_board(f"https://{host}/v0/postings/{site}",
                             params={"mode": "json"}, headers={"User-Agent": USER_AGENT}, timeout=timeout)
     response.raise_for_status()
     jobs = response.json()

@@ -12,13 +12,10 @@ from job_tools.greenhouse import MAX_GREENHOUSE_SUMMARIES, greenhouse_candidates
 
 
 class GreenhouseTests(unittest.TestCase):
-    def test_board_config_activates_only_three_companies(self):
+    def test_board_config_loads_unique_companies(self):
         boards = load_greenhouse_boards()
-        self.assertEqual(boards, [
-            {"company": "Stripe", "token": "stripe"},
-            {"company": "Airbnb", "token": "airbnb"},
-            {"company": "Figma", "token": "figma"},
-        ])
+        self.assertIn({"company": "Airbnb", "token": "airbnb"}, boards)
+        self.assertEqual(len(boards), len({board["token"] for board in boards}))
 
     def test_commented_board_entries_are_ignored(self):
         with tempfile.TemporaryDirectory() as directory:

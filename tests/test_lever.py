@@ -23,7 +23,9 @@ def posting(id, location="New York, NY", workplace="on-site", title="Data Analys
 
 class LeverTests(unittest.TestCase):
     def test_board_config_and_endpoint(self):
-        self.assertEqual(load_lever_boards(), [{"company": "Palantir", "site": "palantir"}])
+        boards = load_lever_boards()
+        self.assertIn({"company": "Palantir", "site": "palantir"}, boards)
+        self.assertEqual(len(boards), len({(board["site"], board.get("eu", False)) for board in boards}))
         with patch("job_tools.lever.requests.get") as get:
             get.return_value.json.return_value = [posting("123")]
             self.assertEqual(len(fetch_lever_jobs("acme", eu=True)), 1)
