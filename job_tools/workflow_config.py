@@ -13,6 +13,7 @@ class WorkflowLimits:
     greenhouse_jobs_per_run: int
     lever_jobs_per_run: int
     ashby_jobs_per_run: int
+    adzuna_jobs_per_run: int
     remoteok_jobs_per_run: int
     remotive_jobs_per_run: int
     idealist_candidates_per_run: int

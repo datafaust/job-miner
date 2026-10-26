@@ -9,7 +9,7 @@ from job_tools import job_history
 
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
-SOURCES = ("Greenhouse", "Lever", "Ashby", "Remote OK", "Remotive", "Idealist", "Other")
+SOURCES = ("Greenhouse", "Lever", "Ashby", "Adzuna", "Remote OK", "Remotive", "Idealist", "Other")
 
 
 @dataclass(frozen=True)

@@ -14,6 +14,9 @@ from job_tools.workflow_config import LIMITS
 
 class JobWorkflowTests(unittest.TestCase):
     def setUp(self):
+        adzuna_env_patch = patch.dict(os.environ, {"ADZUNA_APP_ID": "", "ADZUNA_APP_KEY": ""})
+        adzuna_env_patch.start()
+        self.addCleanup(adzuna_env_patch.stop)
         idealist_limits_patch = patch(
             "main.LIMITS",
             replace(LIMITS, idealist_candidates_per_run=3, idealist_jobs_per_run=1),
@@ -185,6 +188,24 @@ class JobWorkflowTests(unittest.TestCase):
         self.assertIn("Source: Remotive", output)
         self.assertIn(job["url"], output)
         self.assertEqual(self.record_ai_result.call_args.args[0], job["url"])
+
+    def test_adzuna_result_uses_existing_save_and_summary_flow(self):
+        job = {"id": "123", "title": "Data Analyst",
+               "redirect_url": "https://www.adzuna.com/details/123"}
+        candidate = {"text": "Data Analyst\nExample\nNew York, NY\nSource: The Adzuna API",
+                     "link": job["redirect_url"], "job": job}
+        with patch.dict(os.environ, {"ADZUNA_APP_ID": "id", "ADZUNA_APP_KEY": "key"}), \
+             patch("main.fetch_adzuna_jobs", return_value=[job]) as fetch, \
+             patch("main.adzuna_candidates", return_value=[candidate]) as candidates, \
+             patch("main.save_adzuna_job", return_value="Source: The Adzuna API\nDescription snippet") as save, \
+             patch("main.SearchTools") as search:
+            search.search_idealist.run.return_value = "[]"
+            output = JobCrew("data analyst", "nyc", summarize=False).run()
+        fetch.assert_called_once_with("data analyst", "nyc")
+        candidates.assert_called_once_with([job], "data analyst", "nyc")
+        save.assert_called_once_with(job)
+        self.assertIn("Source: The Adzuna API", output)
+        self.assertIn(job["redirect_url"], output)
 
     def test_lever_result_is_saved_and_summarized(self):
         job = {"id": "abc123", "text": "Data Analyst",

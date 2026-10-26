@@ -2,6 +2,7 @@
   "greenhouse_jobs_per_run": 2,
   "lever_jobs_per_run": 2,
   "ashby_jobs_per_run": 2,
+  "adzuna_jobs_per_run": 2,
   "remoteok_jobs_per_run": 2,
   "remotive_jobs_per_run": 2,
   "idealist_candidates_per_run": 5,

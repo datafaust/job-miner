@@ -61,6 +61,18 @@ def _json_posting(job):
         description = _description_text(_required_text(job.get("description"), "description"))
         header = [title, _optional_text(job.get("company_name")), _optional_text(job.get("candidate_required_location"))]
         source = "remotive"
+    elif "redirect_url" in job and "title" in job:
+        title = _required_text(job.get("title"), "title")
+        url = _optional_text(job.get("redirect_url"))
+        description = _description_text(_required_text(job.get("description"), "description"))
+        company = job.get("company") or {}
+        location = job.get("location") or {}
+        header = [title,
+                  _optional_text(company.get("display_name")) if isinstance(company, dict) else None,
+                  _optional_text(location.get("display_name")) if isinstance(location, dict) else None,
+                  "Source: The Adzuna API (https://www.adzuna.com)",
+                  "Description snippet only; full posting text unavailable from this API."]
+        source = "adzuna"
     else:
         raise ValueError("Unrecognized posting JSON format")
 

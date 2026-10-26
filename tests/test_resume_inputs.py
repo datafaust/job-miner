@@ -26,6 +26,10 @@ class ResumeInputTests(unittest.TestCase):
               "url": "https://remotive.com/remote-jobs/software-dev/engineer-12",
               "description": "<p>Build APIs.</p><p>Test services.</p>"},
              "Build APIs.", "Test services."),
+            ({"title": "Engineer", "redirect_url": "https://www.adzuna.com/details/12",
+              "company": {"display_name": "Acme"}, "location": {"display_name": "New York, NY"},
+              "description": "Build APIs. Test services."},
+             "The Adzuna API", "snippet only"),
         ]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "job.json"

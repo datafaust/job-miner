@@ -56,6 +56,11 @@ def job_key(url):
             if match:
                 return "idealist:" + match.group(1).lower()
 
+    if host == "adzuna.com" or host.endswith(".adzuna.com"):
+        match = re.search(r"/(?:jobs/land/ad|details)/(\d+)(?:/|$)", parsed.path)
+        if match:
+            return "adzuna:" + match.group(1)
+
     greenhouse_ids = parse_qs(parsed.query).get("gh_jid", [])
     if len(greenhouse_ids) == 1 and greenhouse_ids[0].isdigit():
         return "greenhouse:" + greenhouse_ids[0]
@@ -88,7 +93,11 @@ def job_source(key, url):
         return "Lever"
     if key.startswith("ashby:"):
         return "Ashby"
+    if key.startswith("adzuna:"):
+        return "Adzuna"
     host = (urlsplit(url).hostname or "").lower().removeprefix("www.")
+    if host == "adzuna.com" or host.endswith(".adzuna.com"):
+        return "Adzuna"
     if host == "remoteok.com":
         return "Remote OK"
     if host == "remotive.com":

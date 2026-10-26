@@ -150,6 +150,31 @@ def extract_ashby(job):
     }
 
 
+def extract_adzuna(job):
+    location = job.get("location") or {}
+    place = str(location.get("display_name") or "").strip() if isinstance(location, dict) else ""
+    company = job.get("company") or {}
+    company_name = str(company.get("display_name") or "").strip() if isinstance(company, dict) else ""
+    low, high = job.get("salary_min"), job.get("salary_max")
+    salary = None
+    if isinstance(low, (int, float)) and not isinstance(low, bool) and isinstance(high, (int, float)) and not isinstance(high, bool):
+        salary = f"${low:,.0f} - ${high:,.0f}"
+        if job.get("salary_is_predicted"):
+            salary += " (Adzuna estimate)"
+    signal = " ".join((str(job.get("title") or ""), place, str(job.get("description") or "")))
+    status = "hybrid" if re.search(r"\bhybrid\b", signal, re.I) else (
+        "remote" if re.search(r"\bremote\b", signal, re.I) else "unknown")
+    return {
+        "job_title": str(job["title"]).strip(),
+        "company": company_name or None,
+        "salary_range": salary,
+        "posted_at": job.get("created") or None,
+        "posted_text": None,
+        "remote_status": status,
+        "location": place or None,
+    }
+
+
 def extract_and_save(url, detail_file):
     """Extract facts from the saved source and upsert them by stable job ID."""
     path = Path(detail_file)
@@ -165,6 +190,8 @@ def extract_and_save(url, detail_file):
             facts = extract_lever(job)
         elif path.name.startswith("JOB_ashby_"):
             facts = extract_ashby(job)
+        elif path.name.startswith("JOB_adzuna_"):
+            facts = extract_adzuna(job)
         else:
             facts = extract_greenhouse(job)
     elif path.suffix == ".txt":

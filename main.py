@@ -13,8 +13,9 @@ from job_agents import JobAgents
 from job_tasks import JobTasks
 from job_tools.browser_tools import BrowserTools
 from job_tools.ashby import MAX_ASHBY_SUMMARIES, ashby_candidates, fetch_ashby_jobs, load_ashby_boards, save_ashby_job
+from job_tools.adzuna import adzuna_candidates, fetch_adzuna_jobs, save_adzuna_job
 from job_tools.greenhouse import MAX_GREENHOUSE_SUMMARIES, greenhouse_candidates, load_greenhouse_boards, save_greenhouse_job, scrape_greenhouse
-from job_tools.job_history import job_key, record_ai_result, saved_ai_results
+from job_tools.job_history import job_key, job_source, record_ai_result, saved_ai_results
 from job_tools.job_stats import format_run, snapshot
 from job_tools.lever import MAX_LEVER_SUMMARIES, fetch_lever_jobs, lever_candidates, load_lever_boards, save_lever_job
 from job_tools.location import normalize_search_location
@@ -195,6 +196,27 @@ class JobCrew:
     else:
       print("No matching unprocessed Ashby jobs found.")
 
+    if os.getenv("ADZUNA_APP_ID") and os.getenv("ADZUNA_APP_KEY"):
+      try:
+        adzuna_jobs = fetch_adzuna_jobs(self.job_ask, self.location)
+        adzuna_matches = adzuna_candidates(adzuna_jobs, self.job_ask, self.location)
+        for selected in adzuna_matches:
+          url = selected["link"]
+          print(f"Selected Adzuna job: {selected['job']['title']} ({url})")
+          job_text = save_adzuna_job(selected["job"])
+          results.append(self._summarize_job(agents, tasks, selected, job_text))
+        if not adzuna_matches:
+          print("No matching unprocessed Adzuna jobs found.")
+      except (requests.RequestException, ValueError) as error:
+        # Requests exceptions can include the full URL, including the API key.
+        if isinstance(error, requests.RequestException):
+          status = getattr(getattr(error, "response", None), "status_code", None)
+          print(f"Adzuna search failed: HTTP {status}" if status else f"Adzuna search failed: {type(error).__name__}")
+        else:
+          print(f"Adzuna search failed: {error}")
+    else:
+      print("Adzuna skipped: set ADZUNA_APP_ID and ADZUNA_APP_KEY to enable it.")
+
     if self.location == "remote":
       try:
         remote_jobs = fetch_remoteok_jobs()
@@ -331,7 +353,7 @@ class JobCrew:
     )
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser(description="Find and organize Greenhouse, Lever, Ashby, Remote OK, Remotive, and Idealist job postings.")
+  parser = argparse.ArgumentParser(description="Find and organize Greenhouse, Lever, Ashby, Adzuna, Remote OK, Remotive, and Idealist job postings.")
   parser.add_argument("--model", default="openhermes", help="Ollama model to use (default: openhermes)")
   parser.add_argument("--no-summary", action="store_true", help="Save matching jobs without AI summaries")
   parser.add_argument("--saved-summaries", action="store_true", help="Show saved AI results without searching")
@@ -343,6 +365,8 @@ if __name__ == "__main__":
       print("No AI results have been saved yet.")
     for key, title, model, status, result_text, saved_at, url, detail_file in results:
       source_credit = "Credit: Remotive\n" if url.startswith(("https://remotive.com/", "https://www.remotive.com/")) else ""
+      if job_source(key, url) == "Adzuna":
+        source_credit = "Source: The Adzuna API (https://www.adzuna.com)\n"
       print(
         f"{title} [{status}] — {saved_at}\n"
         f"Job ID: {key}\nModel: {model}\n{source_credit}Source: {url}\n"
