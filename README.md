@@ -2,6 +2,23 @@
 
 Job Watcher is an early job search prototype. Its current entry point asks for a job description, searches configured Greenhouse and Lever company boards, Remote OK and Remotive for remote searches, and [Idealist](https://www.idealist.org/), and uses CrewAI to choose and organize postings. Both agents use the same local Ollama model, `openhermes` by default. It prints the results in the terminal; it does not apply to jobs or run on a schedule.
 
+## Resume selection
+
+The separate resume workflow begins with `resume_cli.py`. It loads one saved posting or a local `.json`/`.txt` posting, then asks a local Ollama model through CrewAI to produce a job-specific selection JSON. It does not render a DOCX yet.
+
+```bash
+python resume_cli.py --job-id greenhouse:8172487 --model qwen2.5:7b --rewrite-mode light
+python resume_cli.py --posting-file /path/to/posting.txt --job-title "Data Engineer" --job-url https://example.com/jobs/123 --model openhermes
+```
+
+`--job-id` accepts the stable IDs displayed by `python main.py --saved-summaries`; `--posting-file` accepts a saved source JSON or a plain text posting. For plain text, the first nonempty line is used as the title unless `--job-title` is supplied. A local posting without a URL receives a content-derived `local:` ID and a null URL. `--model` defaults to `openhermes`, as in `main.py`; `--rewrite-mode` accepts `none`, `light` (default), or `targeted`.
+
+The selector requests an 8,192-token Ollama context and lets Ollama generate until the model stops (`num_predict=-1`). A 20-minute request timeout remains in place. These settings are recorded in each run manifest.
+
+Each run creates `generated_resume_runs/<job-id>/<timestamp>/` with `posting.txt`, `inventory.yaml`, `prompt.md`, `manifest.json`, `validation_report.json`, and the raw model reply when available. The manifest records the source URL, title, job ID, source and posting hashes, inventory and prompt hashes, model, rewrite mode, prompt version, and generation status. Valid selections are saved to `generated_selections/<job-id>_<timestamp>_selection.json`. Those runs also get `evidence_report.json` and a readable `evidence_report.md` beside the manifest. Both directories are ignored by Git because they contain personal resume data and job postings.
+
+Validation checks JSON shape, source IDs and ownership, ordering, duplicates, bullet minimums, summary length and `SUM-001`, skill categories, exact certification text, and unverified date overrides. Invalid output leaves its raw reply and all detected errors in the run directory; it does not produce a selection or DOCX. The direct `render_resume.py` entry point applies the same structural checks before opening the template. The evidence report extracts labelled job requirements and suggests selected accomplishment IDs based on shared words. It also flags new numbers, technical terms, technology-specific tenure, weak wording overlap in AI-authored prose, and skill items missing from their inventory category. These are leads for human review, not a factual proof or an AI score. Review the generated wording against the original inventory and posting before rendering.
+
 ## What happens during a run
 
 1. [`main.py`](main.py) visits each board in [`config/greenhouse_boards.json`](config/greenhouse_boards.json) and fetches its jobs with full descriptions. The entered `nyc` or `remote` choice filters Greenhouse jobs by their published location labels before ranking. Configured roles also pass through the relevance check described below. Candidates from different boards are taken in rounds, with **at most two Greenhouse jobs summarized per run** across all boards by default. A failed board request is reported, and the search continues through the remaining boards and Idealist.
@@ -20,7 +37,7 @@ Edit [`config/workflow_limits.json`](config/workflow_limits.json) to change per-
 
 ### Role relevance
 
-[`config/related_keys.json`](config/related_keys.json) defines relevance profiles for `data analyst` and `software engineer` searches. A primary title phrase passes directly. A related title phrase or supporting title term needs at least two distinct description signals in the posting's responsibilities. Matching ignores case and punctuation and uses whole words. The filter prefers explicitly headed responsibility sections and excludes qualification sections; when no such headings exist, it checks the introductory description text. A description match without a title signal does not pass automatically.
+[`config/related_keys.json`](config/related_keys.json) defines relevance profiles for `data analyst`, `software engineer`, `ai engineer`, `data engineer`, and `applied ai` searches. A primary title phrase passes directly. A related title phrase or supporting title term needs at least two distinct description signals in the posting's responsibilities. Matching ignores case and punctuation and uses whole words. The filter prefers explicitly headed responsibility sections and excludes qualification sections; when no such headings exist, it checks the introductory description text. A description match without a title signal does not pass automatically.
 
 For these configured roles, relevance is checked before per-source summary limits and before saving. Idealist listing titles are screened before details are opened, then the full posting is checked before persistence. Rejected postings are not marked processed, so changing the config can make them eligible on a later run. Search requests without a configured role keep the previous keyword matching behavior. Add a role profile to enable the stricter rule for that search.
 

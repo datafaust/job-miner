@@ -1,0 +1,793 @@
+schema_version: '1.0'
+source:
+  filename: resume-master-accomplishments.docx
+  extraction_method: python-docx paragraph text
+  original_wording_preserved: true
+  note: Original text transcribed directly from updated DOCX. Suggested tags are heuristic and unreviewed; check
+    source dates before applications. Existing accomplishment IDs preserved; TLC-MGR-009 added for NYU/Spark collaboration.
+identity:
+  name: FAUSTO LOPEZ
+  contact_line_as_written: (646) 639-3360 | FaustoLopez110@gmail.com
+summary_statements:
+- id: SUM-001
+  original_text: Senior Data & Software Engineer with 10+ years of experience designing and developing scalable
+    data platforms, cloud-based applications, ETL pipelines, APIs, and analytics systems. Combines deep expertise
+    in Python, data engineering, and software development with experience in machine learning, AI-driven solutions,
+    and technical leadership of data engineering and analytics teams.
+  source_paragraph_index: 6
+- id: SUM-002
+  original_text: Expertise in ETL pipelines, data modeling, and cloud-based architectures, leveraging SQL, Python,
+    and R.
+  source_paragraph_index: 7
+- id: SUM-003
+  original_text: Skilled in LLM integration, AI chatbots, NLP, and AI-powered analytics, applying advanced ML techniques
+    for predictive modeling.
+  source_paragraph_index: 8
+- id: SUM-004
+  original_text: Proficient in Excel automation, API integrations, and embedding Excel into cloud and data pipeline
+    workflows.
+  source_paragraph_index: 9
+- id: SUM-005
+  original_text: Built interactive dashboards (Tableau, R-Shiny, Power BI) to deliver real-time analytics for executives
+    and stakeholders.
+  source_paragraph_index: 10
+- id: SUM-006
+  original_text: Hands-on experience with CI/CD, DevOps (AWS, Docker, GitHub Actions), and scalable data platforms
+    (Microsoft Fabric, Spark).
+  source_paragraph_index: 11
+- id: SUM-007
+  original_text: Strong communicator, bridging business intelligence, AI strategy, and data-driven decision-making.
+  source_paragraph_index: 12
+skills:
+- category: Programming & Scripting
+  original_text: Python, R, SQL, React, TypeScript, Bash
+  source_paragraph_index: 18
+- category: Web Development & APIs
+  original_text: Flask, Node.js, RESTful APIs
+  source_paragraph_index: 21
+- category: Data Engineering & Databases
+  original_text: SQL Server, Postgres, ClickHouse, Spark, Microsoft Fabric, ETL Pipelines, Data Modeling, Schema
+    Design
+  source_paragraph_index: 24
+- category: Cloud & DevOps
+  original_text: AWS (Certified Developer – Associate), AWS Lambda, Step Functions, S3, API Gateway, DynamoDB, CloudFormation
+    (Infrastructure as Code), Docker, GitHub Actions, CI/CD
+  source_paragraph_index: 27
+- category: Data Analytics & Visualization
+  original_text: Tableau, R-Shiny, Power BI, Data Wrangling, Predictive Analytics, KPI Dashboards
+  source_paragraph_index: 30
+- category: Machine Learning & Statistical Modeling
+  original_text: Regression Analysis, Random Forest, K-Means Clustering, Time Series Forecasting, Natural Language
+    Processing (NLP)
+  source_paragraph_index: 33
+- category: Artificial Intelligence
+  original_text: Large Language Models (LLMs), AI Agents (e.g., CrewAI), AI Chatbots, NLP-based Chatbot Integration
+  source_paragraph_index: 34
+- category: Big Data & Performance Optimization
+  original_text: Parallel Processing (SQL & R), High-Volume Data Pipelines, Performance Tuning
+  source_paragraph_index: 36
+certifications:
+- original_text: 'AWS Certified Developer – Associate (Earned: 03/2025)'
+  source_paragraph_index: 39
+- original_text: Prior Moderate Risk Public Trust approval – U.S. Department of State (2023)
+  source_paragraph_index: 40
+experience:
+- id: BAO
+  employer: BAO Systems
+  location: Remote, D.C. Based
+  title: Senior Software Engineer – Python/R
+  dates_as_written: September 2021 – Present
+  source_paragraphs:
+    employer: 45
+    role: 46
+  accomplishments:
+  - id: BAO-001
+    original_text: Architected and developed a scalable Analytics Platform for federal government Data Scientists,
+      optimizing big data processing and ensuring seamless integration with modern data pipelines.
+    source_paragraph_index: 48
+    metadata:
+      suggested_technologies: []
+      suggested_competencies:
+      - data_engineering
+      - analytics_engineering
+      suggested_target_roles:
+      - senior_data_engineer
+      - data_platform_software_engineer
+      - analytics_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: BAO-002
+    original_text: Engineered complex web applications to tackle both internal and external big data challenges,
+      integrating RESTful APIs and microservices for high-performance data retrieval and submission.
+    source_paragraph_index: 49
+    metadata:
+      suggested_technologies:
+      - REST APIs
+      suggested_competencies:
+      - backend_engineering
+      suggested_target_roles:
+      - senior_data_engineer
+      - data_platform_software_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: BAO-003
+    original_text: Led the development of R packages and web applications, streamlining the processing of health
+      data across 45+ countries, enhancing efficiency in securing funding assistance.
+    source_paragraph_index: 50
+    metadata:
+      suggested_technologies:
+      - R
+      suggested_competencies:
+      - backend_engineering
+      - leadership
+      suggested_target_roles:
+      - senior_data_engineer
+      - data_platform_software_engineer
+      - engineering_manager
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: BAO-004
+    original_text: Managed and automated GitHub repositories, implementing CI/CD pipelines, and automated testing
+      workflows, conducting code reviews, and enforcing best practices in version control to maintain high-quality
+      software development.
+    source_paragraph_index: 51
+    metadata:
+      suggested_technologies:
+      - GitHub
+      - CI/CD
+      suggested_competencies:
+      - devops
+      - leadership
+      - automated_testing
+      suggested_target_roles:
+      - engineering_manager
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: BAO-005
+    original_text: Designed and built an analytics data platform prototype using Microsoft Fabric to support a South
+      Dakota Health Department RFP, showcasing expertise in cloud-based data infrastructure.
+    source_paragraph_index: 52
+    metadata:
+      suggested_technologies:
+      - Microsoft Fabric
+      suggested_competencies:
+      - data_engineering
+      - analytics_engineering
+      suggested_target_roles:
+      - senior_data_engineer
+      - data_platform_software_engineer
+      - analytics_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: BAO-006
+    original_text: Integrated an AI chatbot into a large-scale health-data application and prototyped retrieval-augmented
+      generation (RAG) using PDF document embeddings to answer questions about application functionality; developed
+      R packages and web applications supporting health-data processing across 45+ countries.
+    source_paragraph_index: 53
+    metadata:
+      suggested_technologies:
+      - RAG
+      - PDF embeddings
+      suggested_competencies:
+      - applied_ai
+      - backend_engineering
+      suggested_target_roles:
+      - applied_ai_engineer
+      - data_platform_software_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: BAO-007
+    original_text: Developed a Flask-based API to streamline the execution of R/Python jobs within our federal analytics
+      platform, enabling seamless integration across data pipelines.
+    source_paragraph_index: 54
+    metadata:
+      suggested_technologies:
+      - Python
+      - R
+      - Flask
+      suggested_competencies:
+      - data_engineering
+      - backend_engineering
+      - analytics_engineering
+      suggested_target_roles:
+      - senior_data_engineer
+      - data_platform_software_engineer
+      - analytics_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: BAO-008
+    original_text: Architected a microservices infrastructure using Docker Compose, optimizing the processing of
+      computational jobs via a Flask API, ensuring scalability and modular deployment
+    source_paragraph_index: 55
+    metadata:
+      suggested_technologies:
+      - Flask
+      - Docker
+      suggested_competencies:
+      - backend_engineering
+      - devops
+      suggested_target_roles:
+      - senior_data_engineer
+      - data_platform_software_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+- id: TLC-DIR
+  employer: Taxi & Limousine Commission, City of New York
+  location: New York, NY
+  title: Director of Data Engineering & Analytics, Policy & External Affairs Department
+  dates_as_written: September 2019 – 2021
+  source_paragraphs:
+    employer: 58
+    role: 59
+  accomplishments:
+  - id: TLC-DIR-001
+    original_text: Led and mentored a high-impact data science team, driving innovation and analytics strategy in
+      NYC’s Policy Analytics Department through data-driven decision-making.
+    source_paragraph_index: 61
+    metadata:
+      suggested_technologies: []
+      suggested_competencies:
+      - analytics_engineering
+      - leadership
+      suggested_target_roles:
+      - analytics_engineer
+      - engineering_manager
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: TLC-DIR-002
+    original_text: Designed and implemented optimized database schemas and stored procedures for a new SQL Server
+      analytics database, improving query performance and data integrity.
+    source_paragraph_index: 62
+    metadata:
+      suggested_technologies:
+      - SQL
+      - SQL Server
+      suggested_competencies:
+      - data_engineering
+      - analytics_engineering
+      suggested_target_roles:
+      - senior_data_engineer
+      - data_platform_software_engineer
+      - analytics_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: TLC-DIR-003
+    original_text: Developed and automated Python, R, and SQL ETL pipelines for large-scale municipal datasets,
+      implementing data validation and reconciliation checks to ensure consistent, accurate metrics for internal
+      reporting and public-facing analytics.
+    source_paragraph_index: 63
+    metadata:
+      suggested_technologies:
+      - Python
+      - R
+      - SQL
+      - ETL
+      suggested_competencies:
+      - data_engineering
+      - data_quality
+      suggested_target_roles:
+      - senior_data_engineer
+      - data_platform_software_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: TLC-DIR-004
+    original_text: Spearheaded the agency-wide data visualization strategy, leading analysts in building dashboards,
+      SSMS reports and increasing executive access to real-time analytics.
+    source_paragraph_index: 64
+    metadata:
+      suggested_technologies:
+      - SQL
+      suggested_competencies:
+      - analytics_engineering
+      - leadership
+      suggested_target_roles:
+      - analytics_engineer
+      - engineering_manager
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: TLC-DIR-005
+    original_text: Collaborated with cross-functional business teams to translate complex data insights into actionable
+      reports, dashboards, and business intelligence solutions.
+    source_paragraph_index: 65
+    metadata:
+      suggested_technologies: []
+      suggested_competencies:
+      - analytics_engineering
+      - leadership
+      suggested_target_roles:
+      - analytics_engineer
+      - engineering_manager
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: TLC-DIR-006
+    original_text: Oversaw the development and maintenance of custom-built web applications, ensuring scalability,
+      security, and business alignment with agency goals.
+    source_paragraph_index: 66
+    metadata:
+      suggested_technologies: []
+      suggested_competencies:
+      - backend_engineering
+      - leadership
+      suggested_target_roles:
+      - senior_data_engineer
+      - data_platform_software_engineer
+      - engineering_manager
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: TLC-DIR-007
+    original_text: Review and develop core data documentation for internal clients and leadership.
+    source_paragraph_index: 67
+    metadata:
+      suggested_technologies: []
+      suggested_competencies: []
+      suggested_target_roles: []
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: TLC-DIR-008
+    original_text: Created and maintained core data documentation, streamlining internal knowledge transfer and
+      enhancing data governance for leadership and stakeholders.
+    source_paragraph_index: 68
+    metadata:
+      suggested_technologies: []
+      suggested_competencies:
+      - leadership
+      suggested_target_roles:
+      - engineering_manager
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: TLC-DIR-009
+    original_text: Designed and prototyped DblPark, a React Native mobile app with Firebase authentication and a
+      Node.js Express backend, enabling real-time driver communication for improved traffic coordination.
+    source_paragraph_index: 69
+    metadata:
+      suggested_technologies:
+      - React Native
+      - Firebase
+      - Node.js
+      - Express
+      suggested_competencies:
+      - backend_engineering
+      suggested_target_roles:
+      - senior_data_engineer
+      - data_platform_software_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+- id: TLC-MGR
+  employer: Taxi & Limousine Commission, City of New York
+  location: New York, NY
+  title: Data & Analytics Manager, Policy & External Affairs Department
+  dates_as_written: July 2016 – August 2019
+  source_paragraphs:
+    employer: 73
+    role: 74
+  accomplishments:
+  - id: TLC-MGR-009
+    original_text: Collaborated with NYU’s Data Science Department to establish an Apache Spark cluster for large-scale
+      NYC taxi trip data analysis, leveraging Spark SQL and sparklyr to process datasets and generate reproducible
+      analytical reports using R Markdown.
+    source_paragraph_index: 76
+    metadata:
+      suggested_technologies:
+      - Apache Spark
+      - Spark SQL
+      - sparklyr
+      - R Markdown
+      - R
+      suggested_competencies:
+      - data_engineering
+      - distributed_processing
+      - analytics_engineering
+      suggested_target_roles:
+      - senior_data_engineer
+      - data_platform_software_engineer
+      - analytics_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: TLC-MGR-001
+    original_text: Defined key performance indicators (KPIs) and automated Python, R, and SQL pipelines to generate
+      internal and public-facing metrics, improving data transparency and accessibility.
+    source_paragraph_index: 77
+    metadata:
+      suggested_technologies:
+      - Python
+      - R
+      - SQL
+      suggested_competencies:
+      - analytics_engineering
+      suggested_target_roles:
+      - analytics_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: TLC-MGR-002
+    original_text: Designed and optimized database schemas for Postgres and ClickHouse, enhancing data integrity,
+      query efficiency, and scalability for city-wide analytics.
+    source_paragraph_index: 78
+    metadata:
+      suggested_technologies:
+      - SQL
+      - Postgres
+      - ClickHouse
+      suggested_competencies:
+      - data_engineering
+      - analytics_engineering
+      suggested_target_roles:
+      - senior_data_engineer
+      - data_platform_software_engineer
+      - analytics_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: TLC-MGR-003
+    original_text: Implemented parallelized R and SQL scripting workflows, accelerating reporting speeds by 400%,
+      reducing latency in large-scale data analysis.
+    source_paragraph_index: 79
+    metadata:
+      suggested_technologies:
+      - R
+      - SQL
+      suggested_competencies:
+      - analytics_engineering
+      suggested_target_roles:
+      - analytics_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: TLC-MGR-004
+    original_text: Developed a driver income calculator used by 180,000+ NYC taxi drivers, providing real-time income
+      estimates and financial planning insights.
+    source_paragraph_index: 80
+    metadata:
+      suggested_technologies: []
+      suggested_competencies: []
+      suggested_target_roles: []
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: TLC-MGR-005
+    original_text: Built and launched the TLC Data Hub, an R-Shiny-powered public dashboard, showcasing key taxi
+      industry KPIs, trends, and predictive insights for policymakers and the public.
+    source_paragraph_index: 81
+    metadata:
+      suggested_technologies:
+      - R
+      - R-Shiny
+      suggested_competencies:
+      - analytics_engineering
+      - applied_ai
+      suggested_target_roles:
+      - analytics_engineer
+      - applied_ai_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: TLC-MGR-006
+    original_text: Led a groundbreaking driver income study, influencing NYC’s first national vehicle cap on rideshare
+      companies and establishing a minimum driver pay standard for 180,000+ drivers.
+    source_paragraph_index: 82
+    metadata:
+      suggested_technologies: []
+      suggested_competencies:
+      - leadership
+      suggested_target_roles:
+      - engineering_manager
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: TLC-MGR-007
+    original_text: Applied machine learning models (regression, random forest, and k-means clustering) to forecast
+      taxi volume trends and optimize 311 complaint categorization, improving public service response efficiency.
+    source_paragraph_index: 83
+    metadata:
+      suggested_technologies: []
+      suggested_competencies:
+      - applied_ai
+      suggested_target_roles:
+      - applied_ai_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: TLC-MGR-008
+    original_text: Mentored and led a team of data analysts, fostering a data-driven culture, enhancing skill development,
+      and optimizing cross-departmental collaboration.
+    source_paragraph_index: 84
+    metadata:
+      suggested_technologies: []
+      suggested_competencies:
+      - leadership
+      suggested_target_roles:
+      - engineering_manager
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+- id: URBAN
+  employer: Urban Upbound
+  location: Long Island City, NY
+  title: Data & Evaluation Manager
+  dates_as_written: June 2014 - June 2016
+  source_paragraphs:
+    combined_heading: 87
+  accomplishments:
+  - id: URBAN-001
+    original_text: Oversaw and managed six databases to track outcomes and reporting to assist low-income New Yorkers
+      in gaining access to banking services.
+    source_paragraph_index: 89
+    metadata:
+      suggested_technologies: []
+      suggested_competencies:
+      - data_engineering
+      - analytics_engineering
+      - leadership
+      suggested_target_roles:
+      - senior_data_engineer
+      - data_platform_software_engineer
+      - analytics_engineer
+      - engineering_manager
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: URBAN-002
+    original_text: Developed evaluation protocols and analytical tools for testing program models.
+    source_paragraph_index: 90
+    metadata:
+      suggested_technologies: []
+      suggested_competencies: []
+      suggested_target_roles: []
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: URBAN-003
+    original_text: Aided with studies on financial stress as a predictor of counseling outcomes.
+    source_paragraph_index: 91
+    metadata:
+      suggested_technologies: []
+      suggested_competencies: []
+      suggested_target_roles: []
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: URBAN-004
+    original_text: Provided quantitative and qualitative assistance for the Healthy Aging Study, a qualitative report
+      recommending resource upgrades for senior citizens in Far Rockaway.
+    source_paragraph_index: 92
+    metadata:
+      suggested_technologies: []
+      suggested_competencies: []
+      suggested_target_roles: []
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: URBAN-005
+    original_text: Designed and administered surveys on financial counseling outcomes.
+    source_paragraph_index: 93
+    metadata:
+      suggested_technologies: []
+      suggested_competencies: []
+      suggested_target_roles: []
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: URBAN-006
+    original_text: Developed evaluation protocols for testing efficacy of interventions for all programs.
+    source_paragraph_index: 94
+    metadata:
+      suggested_technologies: []
+      suggested_competencies: []
+      suggested_target_roles: []
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+education:
+- institution: Macaulay Honors College at CUNY-Hunter
+  location: New York, NY
+  degree_as_written: 'Master of Science: Applied Computer Science and Statistics'
+  date_as_written: May 2014
+  source_paragraphs:
+  - 99
+  - 100
+- institution: Macaulay Honors College at CUNY-Hunter
+  location: New York, NY
+  degree_as_written: 'Bachelor of Arts: Sociology'
+  date_as_written: May 2013
+  source_paragraphs:
+  - 102
+  - 103
+publications:
+- id: PUB-001
+  original_text: 'An Earnings Standard for New York City’s App-Based Drivers: Economic Analysis and Policy Assessment,
+    July 2018.'
+  source_paragraph_index: 108
+- id: PUB-002
+  original_text: 'Healthy Aging in Far Rockaway: Findings from the Urban Upbound Healthy Aging Initiative, April
+    2015.'
+  source_paragraph_index: 109
+- id: PUB-003
+  original_text: 'Hybrid Strategies: Allocating Involvement in the Digital Age, Society for the Study of Symbolic
+    Interaction, June 2015.'
+  source_paragraph_index: 110
+projects:
+- id: COSMO
+  name: Cosmo — AI-Powered Personal Robotics Platform
+  descriptor: Independent Project | Active Development
+  technologies_as_written: Python, Raspberry Pi, ESP32, MQTT, REST APIs, SQLite, Ollama, Whisper, Piper TTS, MediaPipe,
+    Computer Vision, Linux, Arduino/C++, Embedded Systems
+  source_paragraphs:
+    name: 119
+    descriptor: 120
+    technologies: 121
+  accomplishments:
+  - id: COSMO-001
+    original_text: Designed and developed a modular, distributed robotics platform integrating Python microservices,
+      Raspberry Pi hardware, an ESP32 motor controller, and locally hosted AI services to support conversational
+      interaction, computer vision, persistent memory, and robotic behavior.
+    source_paragraph_index: 122
+    metadata:
+      suggested_technologies:
+      - Python
+      - Raspberry Pi
+      - ESP32
+      - Computer Vision
+      suggested_competencies:
+      - backend_engineering
+      - applied_ai
+      - embedded_systems
+      suggested_target_roles:
+      - senior_data_engineer
+      - data_platform_software_engineer
+      - applied_ai_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: COSMO-002
+    original_text: Architected a service-oriented system spanning Raspberry Pi and Windows environments, leveraging
+      MQTT messaging, REST APIs, SQLite persistence, and Linux systemd services to coordinate speech processing,
+      visual perception, AI inference, and motor control.
+    source_paragraph_index: 123
+    metadata:
+      suggested_technologies:
+      - REST APIs
+      - MQTT
+      - SQLite
+      - Raspberry Pi
+      - Linux
+      suggested_competencies:
+      - backend_engineering
+      - applied_ai
+      - devops
+      - embedded_systems
+      suggested_target_roles:
+      - senior_data_engineer
+      - data_platform_software_engineer
+      - applied_ai_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: COSMO-003
+    original_text: Implemented AI-powered interaction capabilities integrating local LLM inference (Ollama), speech
+      recognition (Whisper), text-to-speech (Piper), facial identification, and object detection to enable voice-driven
+      commands, personalized interactions, and contextual memory.
+    source_paragraph_index: 124
+    metadata:
+      suggested_technologies:
+      - Ollama
+      - Whisper
+      - Piper TTS
+      - Computer Vision
+      suggested_competencies:
+      - applied_ai
+      suggested_target_roles:
+      - applied_ai_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: COSMO-004
+    original_text: Developed a computer vision processing architecture using shared camera frame buffers and independent
+      detection workers, prioritizing recent frames and optimizing image-processing workloads to reduce computational
+      overhead on resource-constrained Raspberry Pi hardware.
+    source_paragraph_index: 125
+    metadata:
+      suggested_technologies:
+      - Raspberry Pi
+      - Computer Vision
+      suggested_competencies:
+      - applied_ai
+      - embedded_systems
+      suggested_target_roles:
+      - applied_ai_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: COSMO-005
+    original_text: Developed prototype visual target-tracking and following capabilities, translating detected object
+      positions into bounded movement commands through an MQTT-to-UART motor-control interface connected to an ESP32
+      microcontroller.
+    source_paragraph_index: 126
+    metadata:
+      suggested_technologies:
+      - MQTT
+      - ESP32
+      - Computer Vision
+      suggested_competencies:
+      - embedded_systems
+      suggested_target_roles: []
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: COSMO-006
+    original_text: Prototyped autonomous navigation and obstacle avoidance using camera-based environmental analysis
+      and an 8×8 time-of-flight distance sensor, incorporating experimental movement decision logic, sensor validation,
+      and motor safety mechanisms.
+    source_paragraph_index: 127
+    metadata:
+      suggested_technologies: []
+      suggested_competencies:
+      - embedded_systems
+      suggested_target_roles: []
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: COSMO-007
+    original_text: Integrated AI-assisted development workflows throughout system design, implementation, debugging,
+      and hardware prototyping, accelerating development across unfamiliar robotics, embedded electronics, and distributed
+      software technologies.
+    source_paragraph_index: 128
+    metadata:
+      suggested_technologies: []
+      suggested_competencies:
+      - backend_engineering
+      - applied_ai
+      - embedded_systems
+      suggested_target_roles:
+      - senior_data_engineer
+      - data_platform_software_engineer
+      - applied_ai_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: COSMO-008
+    metadata:
+      suggested_technologies:
+      - RAG
+      - LLMs
+      suggested_competencies:
+      - applied_ai
+      suggested_target_roles:
+      - applied_ai_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+    original_text: Developing retrieval-augmented generation (RAG) capabilities to retrieve relevant stored information
+      and incorporate it into LLM responses, extending the platform's contextual memory and personalized interactions.
+    source_paragraph_index: 129
+- id: CAT-TOY
+  name: Arduino-Based Interactive Cat Toy
+  descriptor: Independent Project | Hardware and Embedded Systems Prototyping
+  technologies_as_written: Arduino, CAD, 3D Printing, Servo Motors, Circuit Design, Embedded Electronics
+  source_paragraphs:
+    name: 131
+    descriptor: 132
+    technologies: 133
+  accomplishments:
+  - id: CAT-TOY-001
+    original_text: Designed and constructed an Arduino-based interactive cat toy, integrating custom CAD-designed
+      and 3D-printed mechanical components, servo motor control, and microcontroller-driven electronics.
+    source_paragraph_index: 134
+    metadata:
+      suggested_technologies:
+      - Arduino
+      - 3D Printing
+      - CAD
+      suggested_competencies:
+      - embedded_systems
+      suggested_target_roles: []
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+  - id: CAT-TOY-002
+    original_text: Developed circuit schematics, assembled and wired electronic components, and integrated mechanical
+      and electrical subsystems into a custom physical prototype using AI-assisted design and development workflows.
+    source_paragraph_index: 135
+    metadata:
+      suggested_technologies: []
+      suggested_competencies:
+      - data_engineering
+      - applied_ai
+      - embedded_systems
+      suggested_target_roles:
+      - senior_data_engineer
+      - data_platform_software_engineer
+      - applied_ai_engineer
+      review_status: unreviewed
+      metadata_origin: heuristic_suggestion
+review_notes:
+- kind: possible_overlap
+  ids:
+  - TLC-DIR-007
+  - TLC-DIR-008
+  comment: Both reference data documentation; preserved separately as in source.
+- kind: source_freshness
+  ids:
+  - BAO
+  comment: The BAO date says Present in the uploaded document; review before producing a job application.
+- kind: source_format
+  ids:
+  - skills
+  comment: Artificial Intelligence category is stored from the combined source paragraph; category label and value
+    were split without rewording.

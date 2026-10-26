@@ -1,0 +1,11 @@
+Tailor my resume for the job description below using RESUME_TAILORING.md and master_accomplishments.yaml.
+
+Set bullet_rewrite_mode to light.
+
+Select the most relevant accomplishments, rewrite them where appropriate to match the job description's terminology, and generate a valid selection.json compatible with my Python renderer.
+
+Preserve factual accuracy and identify any significant qualification gaps.
+
+Job description:
+
+[PASTE JOB DESCRIPTION]

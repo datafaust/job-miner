@@ -167,6 +167,14 @@ def record_processed(url, detail_file):
         )
 
 
+def saved_job(key):
+    """Return the original URL and source file for one saved posting ID."""
+    with _database() as connection:
+        return connection.execute(
+            "SELECT url, detail_file FROM processed_jobs WHERE job_key = ?", (key,)
+        ).fetchone()
+
+
 def record_ai_result(url, title, model, status, result_text):
     """Save the displayed AI result for a previously scraped posting."""
     if status not in {"summarized", "not_needed", "failed"}:

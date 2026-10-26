@@ -1,0 +1,111 @@
+{
+  "name": "Fausto Lopez",
+  "contact_line": "(646) 639-3360 | FaustoLopez110@gmail.com",
+  "summary": {
+    "source_ids": [
+      "SUM-001",
+      "SUM-002",
+      "SUM-006",
+      "BAO-001",
+      "BAO-007"
+    ],
+    "text": "Senior Data & Software Engineer with 10+ years of experience designing scalable data platforms, ETL pipelines, APIs, and analytics applications. Strong background in Python, SQL, cloud architecture, and backend engineering, including building analytics infrastructure for federal government data scientists. Combines hands-on software development with experience leading data engineering and analytics teams."
+  },
+  "skills": [
+    {
+      "category": "Programming & Scripting",
+      "text": "Python, R, SQL, React, TypeScript, Bash"
+    },
+    {
+      "category": "Web Development & APIs",
+      "text": "Flask, Node.js, RESTful APIs"
+    },
+    {
+      "category": "Data Engineering & Databases",
+      "text": "SQL Server, Postgres, ClickHouse, Spark, Microsoft Fabric, ETL Pipelines, Data Modeling, Schema Design"
+    },
+    {
+      "category": "Cloud & DevOps",
+      "text": "AWS (Certified Developer – Associate), CI/CD, Docker, GitHub Actions, RStudio Connect, RStudio Workbench"
+    },
+    {
+      "category": "Data Analytics & Visualization",
+      "text": "Tableau, R-Shiny, Power BI, Data Wrangling, Predictive Analytics, KPI Dashboards"
+    },
+    {
+      "category": "Machine Learning & Statistical Modeling",
+      "text": "Regression Analysis, Random Forest, K-Means Clustering, Time Series Forecasting, Natural Language Processing (NLP)"
+    },
+    {
+      "category": "Artificial Intelligence",
+      "text": "Large Language Models (LLMs), AI Agents (e.g., CrewAI), AI Chatbots, NLP-based Chatbot Integration"
+    },
+    {
+      "category": "Big Data & Performance Optimization",
+      "text": "Parallel Processing (SQL & R), High-Volume Data Pipelines, Performance Tuning"
+    }
+  ],
+  "certifications": [
+    "AWS Certified Developer – Associate (Earned: 03/2025)"
+  ],
+  "experience": [
+    {
+      "id": "BAO",
+      "bullets": [
+        "BAO-001",
+        "BAO-002",
+        "BAO-003",
+        "BAO-004",
+        "BAO-005",
+        "BAO-006",
+        "BAO-007",
+        "BAO-008"
+      ]
+    },
+    {
+      "id": "TLC-DIR",
+      "bullets": [
+        "TLC-DIR-001",
+        "TLC-DIR-002",
+        "TLC-DIR-003",
+        "TLC-DIR-004",
+        "TLC-DIR-005",
+        "TLC-DIR-006",
+        "TLC-DIR-007",
+        "TLC-DIR-008",
+        "TLC-DIR-009"
+      ]
+    },
+    {
+      "id": "TLC-MGR",
+      "bullets": [
+        "TLC-MGR-001",
+        "TLC-MGR-002",
+        "TLC-MGR-003",
+        "TLC-MGR-004",
+        "TLC-MGR-005",
+        "TLC-MGR-006",
+        "TLC-MGR-007",
+        "TLC-MGR-008"
+      ]
+    },
+    {
+      "id": "URBAN",
+      "bullets": [
+        "URBAN-001",
+        "URBAN-002",
+        "URBAN-003",
+        "URBAN-004",
+        "URBAN-005",
+        "URBAN-006"
+      ]
+    }
+  ],
+  "education": true,
+  "publications": [
+    "PUB-001",
+    "PUB-002",
+    "PUB-003"
+  ],
+  "projects": []
+}

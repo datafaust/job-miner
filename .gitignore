@@ -23,6 +23,9 @@ JOB_greenhouse_*.json
 JOB_remoteok_*.json
 crewai_log.txt
 summary_attempts.jsonl
+generated_resume_runs/
+generated_selections/
+generated_resumes/
 prospective_jobs.json
 credentials.json
 .google_drive_token.json
