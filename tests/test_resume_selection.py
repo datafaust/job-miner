@@ -109,6 +109,7 @@ class ResumeSelectionTests(unittest.TestCase):
                                   output_dir=root / "runs")
             with patch("resume_cli.run_selection_agent", return_value=json.dumps(SELECTION)) as agent:
                 selection_path = generate_selection(run_dir, selection_dir=root / "generated_selections")
+            self.assertEqual(agent.call_count, 1)
             self.assertEqual(agent.call_args.kwargs["model"], "qwen2.5:7b")
             self.assertEqual(selection_path.parent.name, "generated_selections")
             self.assertEqual(json.loads(selection_path.read_text()), SELECTION)
@@ -129,9 +130,10 @@ class ResumeSelectionTests(unittest.TestCase):
             run_dir = prepare_run(posting, model="qwen2.5:7b", rewrite_mode="light",
                                   inventory_path=root / "inventory.yaml", prompt_path=root / "policy.md",
                                   output_dir=root / "runs")
-            with patch("resume_cli.run_selection_agent", return_value="not JSON"):
+            with patch("resume_cli.run_selection_agent", return_value="not JSON") as agent:
                 with self.assertRaises(json.JSONDecodeError):
                     generate_selection(run_dir, selection_dir=root / "generated_selections")
+            self.assertEqual(agent.call_count, 2)
             self.assertEqual((run_dir / "selection_raw.txt").read_text(), "not JSON")
             self.assertEqual(json.loads((run_dir / "manifest.json").read_text())["status"],
                              "selection_failed")
@@ -162,6 +164,36 @@ class ResumeSelectionTests(unittest.TestCase):
             self.assertFalse(report["valid"])
             self.assertGreaterEqual(len(report["errors"]), 2)
             self.assertFalse((root / "generated_selections").exists())
+
+    def test_repairs_parse_and_validation_failures_once(self):
+        import yaml
+        bad = json.loads(json.dumps(SELECTION))
+        bad["summary"]["text"] = "10+ years of experience"
+        for rejected in ("not JSON", json.dumps(bad)):
+            with self.subTest(rejected=rejected), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "inventory.yaml").write_text(yaml.safe_dump(INVENTORY), encoding="utf-8")
+                (root / "policy.md").write_text("Use source IDs.", encoding="utf-8")
+                posting = {"job_id": "local:abc", "url": None, "title": "Engineer", "source": "text",
+                           "source_file": str(root / "job.txt"), "source_sha256": "abc",
+                           "posting_sha256": "def", "posting_text": "Engineer\nBuild systems."}
+                run_dir = prepare_run(posting, model="qwen3:14b", rewrite_mode="none",
+                                      inventory_path=root / "inventory.yaml", prompt_path=root / "policy.md",
+                                      output_dir=root / "runs")
+                with patch("resume_cli.run_selection_agent",
+                           side_effect=[rejected, json.dumps(SELECTION)]) as agent:
+                    result = generate_selection(run_dir, selection_dir=root / "selections")
+                self.assertEqual(agent.call_count, 2)
+                feedback = agent.call_args.args[2]
+                first_report = json.loads((run_dir / "validation_report_attempt_1.json").read_text())
+                self.assertFalse(first_report["valid"])
+                self.assertIn(rejected, feedback)
+                for error in first_report["errors"]:
+                    self.assertIn(error, feedback)
+                self.assertEqual((run_dir / "selection_raw_attempt_1.txt").read_text(), rejected)
+                self.assertTrue(json.loads((run_dir / "validation_report_attempt_2.json").read_text())["valid"])
+                self.assertEqual(json.loads(result.read_text()), SELECTION)
+                self.assertEqual(json.loads((run_dir / "manifest.json").read_text())["attempts"], 2)
 
     def test_renderer_rejects_invalid_selection_before_opening_template(self):
         from render_resume import produce

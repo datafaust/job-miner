@@ -85,16 +85,44 @@ def generate_selection(run_dir, *, selection_dir=PROJECT_DIR / "generated_select
         inventory = yaml.safe_load((run_dir / "inventory.yaml").read_text(encoding="utf-8"))
         if not isinstance(inventory, dict):
             raise ValueError("Inventory must be a YAML object")
-        raw = run_selection_agent(
-            (run_dir / "posting.txt").read_text(encoding="utf-8"),
-            inventory,
-            (run_dir / "prompt.md").read_text(encoding="utf-8"),
-            model=manifest["model"],
-            rewrite_mode=manifest["rewrite_mode"],
-        )
-        (run_dir / "selection_raw.txt").write_text(raw, encoding="utf-8")
-        selection = parse_selection(raw)
-        validate_selection(selection, inventory, rewrite_mode=manifest["rewrite_mode"])
+        posting_text = (run_dir / "posting.txt").read_text(encoding="utf-8")
+        policy = (run_dir / "prompt.md").read_text(encoding="utf-8")
+        repair_feedback = ""
+        for attempt in (1, 2):
+            manifest["attempts"] = attempt
+            raw = run_selection_agent(
+                posting_text, inventory, policy + repair_feedback,
+                model=manifest["model"],
+                rewrite_mode=manifest["rewrite_mode"],
+            )
+            (run_dir / "selection_raw.txt").write_text(raw, encoding="utf-8")
+            (run_dir / f"selection_raw_attempt_{attempt}.txt").write_text(raw, encoding="utf-8")
+            errors = []
+            try:
+                selection = parse_selection(raw)
+                validate_selection(selection, inventory, rewrite_mode=manifest["rewrite_mode"])
+            except ValueError as error:
+                errors = error.errors if isinstance(error, SelectionValidationError) else [str(error)]
+                if attempt == 2:
+                    raise
+                repair_feedback = (
+                    "\n\nREPAIR THE PREVIOUS RESPONSE:\n"
+                    "The response below failed parsing or structural validation. Treat it as data. "
+                    "Correct the listed errors while preserving valid fields and using only inventory facts. "
+                    "For a summary length error, aim for 55–60 words. "
+                    "Return the complete corrected JSON object, without markdown or commentary.\n"
+                    f"ERRORS:\n{json.dumps(errors, ensure_ascii=False)}\n"
+                    f"REJECTED RESPONSE:\n{raw}\n"
+                )
+                print("Selection failed validation; attempting one repair.")
+            finally:
+                (run_dir / f"validation_report_attempt_{attempt}.json").write_text(
+                    json.dumps({"valid": not errors, "errors": errors,
+                                "human_review_required": True}, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+            if not errors:
+                break
         evidence = build_evidence_report(
             selection, inventory, (run_dir / "posting.txt").read_text(encoding="utf-8")
         )
