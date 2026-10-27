@@ -24,7 +24,7 @@ SCOPES = ["https://www.googleapis.com/auth/drive"]
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 SHEETS_MIME = "application/vnd.google-apps.spreadsheet"
 SHEET_NAME = "Prospective jobs"
-SPREADSHEET_NAME = "Job Watcher"
+SPREADSHEET_NAME = "Job Miner"
 COLUMNS = (
     ("job_title", "Job title"),
     ("company", "Company"),

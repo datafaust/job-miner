@@ -1,6 +1,10 @@
-# Job Watcher
+<p align="center">
+  <img src="assets/icon.png" alt="Job Miner icon" width="160">
+</p>
 
-Job Watcher is an early job search prototype. Its current entry point asks for a job description, searches configured company boards, the US Adzuna API when credentials are set, Remote OK and Remotive for remote searches, and [Idealist](https://www.idealist.org/), and uses CrewAI to choose and organize postings. Both agents use the same local Ollama model, `openhermes` by default. It prints the results in the terminal; it does not apply to jobs or run on a schedule.
+# Job Miner
+
+Job Miner is an early job search prototype. Its current entry point asks for a job description, searches configured company boards, the US Adzuna API when credentials are set, Remote OK and Remotive for remote searches, and [Idealist](https://www.idealist.org/), and uses CrewAI to choose and organize postings. Both agents use the same local Ollama model, `openhermes` by default. It prints the results in the terminal; it does not apply to jobs or run on a schedule.
 
 ## Resume selection
 
@@ -49,7 +53,7 @@ Greenhouse, Lever, and Ashby board requests use a shared 0.25-second minimum int
 
 ### Lever searches
 
-The workflow requests each board in [`config/lever_boards.json`](config/lever_boards.json) for both `nyc` and `remote` searches. Palantir is active by default. Add `{"company": "Name", "site": "board-slug"}` for a Lever board, or set `"eu": true` for a `jobs.eu.lever.co` board. Find the slug in the company's `jobs.lever.co/<slug>` URL. A failed board request does not stop the remaining sources. Lever jobs are filtered by location and ranked locally, with at most two unprocessed postings summarized per run across all Lever boards. Saved files include the complete API response plus `_job_watcher_company` for prospect extraction; the organizer receives the description, section lists, and additional text. Lever posting IDs are used for history, so apply links and posting links identify the same job.
+The workflow requests each board in [`config/lever_boards.json`](config/lever_boards.json) for both `nyc` and `remote` searches. Palantir is active by default. Add `{"company": "Name", "site": "board-slug"}` for a Lever board, or set `"eu": true` for a `jobs.eu.lever.co` board. Find the slug in the company's `jobs.lever.co/<slug>` URL. A failed board request does not stop the remaining sources. Lever jobs are filtered by location and ranked locally, with at most two unprocessed postings summarized per run across all Lever boards. Saved files include the complete API response plus `_job_miner_company` for prospect extraction; the organizer receives the description, section lists, and additional text. Lever posting IDs are used for history, so apply links and posting links identify the same job.
 
 Ashby boards are configured in [`config/ashby_boards.json`](config/ashby_boards.json); Ramp and Notion are active by default. Add `{"company": "Name", "board": "board-slug"}` using the slug from `jobs.ashbyhq.com/<board-slug>`. Each board is fetched once with compensation included. The workflow skips unlisted jobs, filters location locally, and ranks title matches before description matches using the entered keywords. For `nyc`, it checks primary and secondary locations, including structured city fields. For `remote`, it requires `workplaceType: Remote` and an explicit unrestricted, US, or NYC remote location; hybrid roles are excluded even when Ashby sets `isRemote: true`. Ambiguous and foreign-only remote locations are skipped. Ashby has no server-side keyword or location filters, and the current workflow only accepts `nyc` or `remote` as inputs. Adjust `ashby_jobs_per_run` in [`config/workflow_limits.json`](config/workflow_limits.json) to change its independent summary cap.
 
@@ -109,7 +113,7 @@ python -m job_tools.prospects export
 python -m job_tools.drive_export
 ```
 
-The first upload opens a browser for Google sign-in and saves the OAuth token locally for later runs. If no file ID is configured, or Google returns 404 for the configured ID, it creates a Google Sheet named **Job Watcher** and saves its ID to `.env`. The exporter creates the **Prospective jobs** tab if missing. Later exports keep existing rows and add only jobs whose stable job key or URL is not already present. Existing job rows, manual notes, and other tabs remain in place; an empty JSON export does not clear the sheet. For an Excel `.xlsx` file, the exporter downloads and reuploads the workbook only when it has new jobs or needs to create the tab. Your JSON export and Drive upload are separate commands, so rerun both to publish new jobs. Use the same Google account that owns or can edit the target file.
+The first upload opens a browser for Google sign-in and saves the OAuth token locally for later runs. If no file ID is configured, or Google returns 404 for the configured ID, it creates a Google Sheet named **Job Miner** and saves its ID to `.env`. The exporter creates the **Prospective jobs** tab if missing. Later exports keep existing rows and add only jobs whose stable job key or URL is not already present. Existing job rows, manual notes, and other tabs remain in place; an empty JSON export does not clear the sheet. For an Excel `.xlsx` file, the exporter downloads and reuploads the workbook only when it has new jobs or needs to create the tab. Your JSON export and Drive upload are separate commands, so rerun both to publish new jobs. Use the same Google account that owns or can edit the target file.
 
 ### Saved AI results
 

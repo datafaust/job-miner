@@ -39,7 +39,7 @@ def _json_posting(job):
         title = _required_text(job.get("title"), "title")
         url = _optional_text(job.get("jobUrl") or job.get("applyUrl"))
         description = ashby_description(job)
-        header = [title, _optional_text(job.get("_job_watcher_company")), _optional_text(job.get("location"))]
+        header = [title, _optional_text(job.get("_job_miner_company")), _optional_text(job.get("location"))]
         source = "ashby"
     elif "lists" in job or "descriptionPlain" in job or "hostedUrl" in job:
         title = _required_text(job.get("text"), "text")
@@ -47,7 +47,7 @@ def _json_posting(job):
         description = lever_description(job)
         categories = job.get("categories") or {}
         location = categories.get("location") if isinstance(categories, dict) else None
-        header = [title, _optional_text(job.get("_job_watcher_company")), _optional_text(location)]
+        header = [title, _optional_text(job.get("_job_miner_company")), _optional_text(location)]
         source = "lever"
     elif "position" in job:
         title = _required_text(job.get("position"), "position")

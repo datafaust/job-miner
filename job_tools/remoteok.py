@@ -15,7 +15,7 @@ from job_tools.workflow_config import LIMITS
 from job_tools.relevance import is_relevant, role_profile, title_strength
 
 API_URL = "https://remoteok.com/api"
-USER_AGENT = "JobWatcher/1.0 (personal job search)"
+USER_AGENT = "JobMiner/1.0 (personal job search)"
 REFRESH_SECONDS = 90 * 60
 MAX_REMOTEOK_SUMMARIES = LIMITS.remoteok_jobs_per_run
 

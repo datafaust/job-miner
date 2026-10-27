@@ -18,7 +18,7 @@ from job_tools.relevance import is_relevant, role_profile, title_strength
 
 BOARD_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "lever_boards.json"
 MAX_LEVER_SUMMARIES = LIMITS.lever_jobs_per_run
-USER_AGENT = "JobWatcher/1.0 (personal job search)"
+USER_AGENT = "JobMiner/1.0 (personal job search)"
 STOP_WORDS = {"a", "an", "and", "at", "for", "in", "job", "jobs", "of", "or",
               "the", "to", "with", "looking", "work", "role", "position", "full", "time"}
 
@@ -173,7 +173,7 @@ def save_lever_job(job, site, company=None):
     file_path = job_dir / f"JOB_lever_{site}_{job_id}.json"
     saved_job = dict(job)
     if company:
-        saved_job["_job_watcher_company"] = company
+        saved_job["_job_miner_company"] = company
     file_path.write_text(json.dumps(saved_job, ensure_ascii=False, indent=2), encoding="utf-8")
     record_processed(url, str(file_path))
     try:

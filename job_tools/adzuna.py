@@ -16,7 +16,7 @@ from job_tools.workflow_config import LIMITS
 
 
 MAX_ADZUNA_SUMMARIES = LIMITS.adzuna_jobs_per_run
-USER_AGENT = "JobWatcher/1.0 (personal job search)"
+USER_AGENT = "JobMiner/1.0 (personal job search)"
 STOP_WORDS = {"a", "an", "and", "at", "for", "in", "job", "jobs", "of", "or",
               "the", "to", "with", "looking", "work", "role", "position", "full", "time"}
 

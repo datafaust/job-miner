@@ -15,7 +15,7 @@ from job_tools.workflow_config import LIMITS
 from job_tools.relevance import is_relevant, role_profile, title_strength
 
 API_URL = "https://remotive.com/api/remote-jobs"
-USER_AGENT = "JobWatcher/1.0 (personal job search)"
+USER_AGENT = "JobMiner/1.0 (personal job search)"
 REFRESH_SECONDS = 6 * 60 * 60
 MIN_REQUEST_SPACING = 31
 MAX_DAILY_REQUESTS = 4

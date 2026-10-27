@@ -94,7 +94,7 @@ class DriveExportTests(unittest.TestCase):
             source.write_text(json.dumps([prospect("new", "Analyst")]), encoding="utf-8")
             drive = MagicMock()
             drive.files.return_value.create.return_value.execute.return_value = {
-                "id": "created", "name": "Job Watcher", "mimeType": drive_export.SHEETS_MIME
+                "id": "created", "name": "Job Miner", "mimeType": drive_export.SHEETS_MIME
             }
             with patch.object(drive_export, "drive_credentials", return_value=object()), \
                  patch.object(drive_export, "build", return_value=drive), \
@@ -107,7 +107,7 @@ class DriveExportTests(unittest.TestCase):
             self.assertEqual(target["id"], "created")
             self.assertIn("/created/edit#gid=33", target["webViewLink"])
             self.assertEqual(drive.files.return_value.create.call_args.kwargs["body"], {
-                "name": "Job Watcher", "mimeType": drive_export.SHEETS_MIME
+                "name": "Job Miner", "mimeType": drive_export.SHEETS_MIME
             })
             update.assert_called_once()
             self.assertEqual(created_ids, ["created"])
@@ -120,7 +120,7 @@ class DriveExportTests(unittest.TestCase):
             response = MagicMock(status=404, reason="Not Found")
             drive.files.return_value.get.return_value.execute.side_effect = HttpError(response, b"Not Found")
             drive.files.return_value.create.return_value.execute.return_value = {
-                "id": "replacement", "name": "Job Watcher", "mimeType": drive_export.SHEETS_MIME
+                "id": "replacement", "name": "Job Miner", "mimeType": drive_export.SHEETS_MIME
             }
             with patch.object(drive_export, "drive_credentials", return_value=object()), \
                  patch.object(drive_export, "build", return_value=drive), \

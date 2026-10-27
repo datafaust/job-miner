@@ -125,7 +125,7 @@ def extract_lever(job):
         workplace, _remote_status(location))
     return {
         "job_title": str(job["text"]).strip(),
-        "company": str(job.get("_job_watcher_company") or "").strip() or None,
+        "company": str(job.get("_job_miner_company") or "").strip() or None,
         "salary_range": salary,
         "posted_at": posted_at,
         "posted_text": None,
@@ -141,7 +141,7 @@ def extract_ashby(job):
     location = str(job.get("location") or "").strip()
     return {
         "job_title": str(job["title"]).strip(),
-        "company": str(job.get("_job_watcher_company") or "").strip() or None,
+        "company": str(job.get("_job_miner_company") or "").strip() or None,
         "salary_range": salary.strip() if isinstance(salary, str) and salary.strip() else None,
         "posted_at": job.get("publishedAt") or None,
         "posted_text": None,

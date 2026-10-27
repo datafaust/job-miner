@@ -66,7 +66,7 @@ class AshbyTests(unittest.TestCase):
                     self.assertIn("Analyze data with SQL", text)
                     path = Path("jobs/JOB_ashby_ramp_" + "a" * 36 + ".json")
                     saved = json.loads(path.read_text())
-                    self.assertEqual(saved["_job_watcher_company"], "Ramp")
+                    self.assertEqual(saved["_job_miner_company"], "Ramp")
                     fact = prospects.list_prospects()[0]
                     self.assertEqual((fact["source"], fact["remote_status"], fact["salary_range"]),
                                      ("Ashby", "remote", "$90K - $120K"))
