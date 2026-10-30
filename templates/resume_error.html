@@ -1,0 +1,13 @@
+{% extends "job_base.html" %}
+{% block title %}Selection could not start{% endblock %}
+{% block content %}
+<div class="narrow-page">
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+      <h1 class="h3">Selection could not start</h1>
+      <p class="text-secondary">{{ message }}</p>
+      <a class="btn btn-outline-primary" href="{{ detail_url }}">Back to posting</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

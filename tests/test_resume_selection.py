@@ -107,9 +107,15 @@ class ResumeSelectionTests(unittest.TestCase):
             run_dir = prepare_run(posting, model="qwen2.5:7b", rewrite_mode="light",
                                   inventory_path=inventory, prompt_path=policy,
                                   output_dir=root / "runs")
+            stages = []
             with patch("resume_cli.run_selection_agent", return_value=json.dumps(SELECTION)) as agent:
-                selection_path = generate_selection(run_dir, selection_dir=root / "generated_selections")
+                selection_path = generate_selection(
+                    run_dir, selection_dir=root / "generated_selections", on_progress=stages.append
+                )
             self.assertEqual(agent.call_count, 1)
+            self.assertIn("Generating selection — attempt 1 of up to 2", stages)
+            self.assertIn("Validating selection — attempt 1", stages)
+            self.assertEqual(stages[-1], "Saving validated selection")
             self.assertEqual(agent.call_args.kwargs["model"], "qwen2.5:7b")
             self.assertEqual(selection_path.parent.name, "generated_selections")
             self.assertEqual(json.loads(selection_path.read_text()), SELECTION)
@@ -182,8 +188,12 @@ class ResumeSelectionTests(unittest.TestCase):
                                       output_dir=root / "runs")
                 with patch("resume_cli.run_selection_agent",
                            side_effect=[rejected, json.dumps(SELECTION)]) as agent:
-                    result = generate_selection(run_dir, selection_dir=root / "selections")
+                    stages = []
+                    result = generate_selection(
+                        run_dir, selection_dir=root / "selections", on_progress=stages.append
+                    )
                 self.assertEqual(agent.call_count, 2)
+                self.assertIn("Generating selection — attempt 2 of up to 2", stages)
                 feedback = agent.call_args.args[2]
                 first_report = json.loads((run_dir / "validation_report_attempt_1.json").read_text())
                 self.assertFalse(first_report["valid"])

@@ -1,0 +1,47 @@
+{% extends "job_base.html" %}
+{% block title %}Resume selection status{% endblock %}
+{% block head %}{% if task.state in ('queued', 'running') %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
+{% block content %}
+<div class="narrow-page">
+  <a class="d-inline-block mb-3" href="{{ task.detail_url }}">← Back to posting</a>
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+      {% if task.state == 'ready_for_review' %}
+        <h1 class="h3 text-success">Selection ready for review</h1>
+        <p>The selection passed structural validation. Review its wording and evidence against your inventory and the posting before rendering a resume.</p>
+        <dl class="details-grid mb-0">
+          <dt>Selection JSON</dt><dd class="text-break small">{{ task.selection_file }}</dd>
+          <dt>Validation report</dt><dd class="text-break small">{{ task.validation_report }}</dd>
+          <dt>Evidence report</dt><dd class="text-break small">{{ task.evidence_report }}</dd>
+        </dl>
+      {% elif task.state == 'failed' %}
+        <h1 class="h3 text-danger">Custom resume could not be made</h1>
+        <p>{{ task.message }}</p>
+        {% if task.errors %}
+        <div class="alert alert-danger">
+          <div class="fw-semibold mb-2">What went wrong</div>
+          <ul class="mb-0">{% for error in task.errors %}<li>{{ error }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+        {% if task.validation_report %}<p class="small text-secondary mb-0">Validation report: <span class="text-break">{{ task.validation_report }}</span></p>{% endif %}
+      {% elif task.state == 'canceled' %}
+        <h1 class="h3">Selection canceled</h1>
+        <p class="text-secondary">The model run was stopped. You can return to the posting and start a new selection when ready.</p>
+      {% else %}
+        <h1 class="h3">Selection {{ task.state }}</h1>
+        <p class="mb-1"><strong>Current stage:</strong> {{ task.stage or 'Waiting for worker to start' }}</p>
+        {% if stage_elapsed %}<p class="small text-secondary mb-1">Time in this stage: {{ stage_elapsed }}</p>{% endif %}
+        <p class="text-secondary">This page refreshes automatically every five seconds.</p>
+        {% if task.state == 'running' %}
+        <form method="post" action="{{ url_for('resume_cancel', task_id=task.task_id) }}">
+          <input type="hidden" name="token" value="{{ cancel_token }}">
+          <button class="btn btn-outline-danger" type="submit">Cancel selection</button>
+        </form>
+        {% endif %}
+      {% endif %}
+      <hr>
+      <p class="small text-secondary mb-0">Model: {{ task.model }}{% if elapsed %} · Elapsed: {{ elapsed }}{% endif %} · Started: {{ task.created_at }}</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

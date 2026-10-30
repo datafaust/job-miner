@@ -1,0 +1,86 @@
+{% extends "job_base.html" %}
+{% block title %}{{ job.title }}{% endblock %}
+{% block content %}
+<a class="d-inline-block mb-3" href="{{ back_url }}">← Back to jobs</a>
+<div class="d-flex justify-content-between align-items-start gap-4 mb-4">
+  <div>
+    <h1 class="h2 mb-1">{{ job.title }}</h1>
+    <p class="text-secondary mb-0">{{ job.company or 'Company unavailable' }} · {{ job.source }}</p>
+  </div>
+  <a class="btn btn-outline-primary text-nowrap" href="{{ job.url }}" target="_blank" rel="noopener noreferrer">Original listing ↗</a>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-8">
+    <section class="card border-0 shadow-sm mb-4">
+      <div class="card-body p-4">
+        <h2 class="h5 mb-3">Saved posting</h2>
+        {% if job.source == 'Adzuna' %}<div class="alert alert-info py-2">Adzuna provides a description snippet, not the full posting.</div>{% endif %}
+        {% if posting %}
+          <div class="posting-text">{{ posting.posting_text }}</div>
+        {% else %}
+          <div class="alert alert-warning mb-0">The saved posting could not be opened: {{ posting_error }}</div>
+        {% endif %}
+      </div>
+    </section>
+    {% if job.summary_status %}
+    <section class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <h2 class="h5 mb-1">AI result</h2>
+        <p class="small text-secondary mb-3">{{ job.summary_status | replace('_', ' ') | title }}{% if job.summary_saved_at %} · {{ job.summary_saved_at }} UTC{% endif %}</p>
+        <div class="posting-text">{{ job.summary_text }}</div>
+      </div>
+    </section>
+    {% endif %}
+  </div>
+  <aside class="col-xl-4">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body p-4">
+        <h2 class="h5 mb-2">Create tailored resume</h2>
+        <p class="small text-secondary">Choose a model to prepare a job-specific selection. You will review the selection before any resume is rendered.</p>
+        {% if model_error %}<div class="alert alert-warning small">{{ model_error }}</div>{% endif %}
+        {% if not model_error and not models %}<div class="alert alert-warning small">No text-generation models are installed in Ollama.</div>{% endif %}
+        <form method="post" action="{{ url_for('resume_confirm', job_id=job.job_key) }}">
+          <input type="hidden" name="q" value="{{ q }}">
+          <input type="hidden" name="source" value="{{ source }}">
+          <input type="hidden" name="remote" value="{{ remote }}">
+          <input type="hidden" name="page" value="{{ page }}">
+          <label class="form-label" for="model">Local Ollama model</label>
+          <select class="form-select mb-3" id="model" name="model" required {% if not posting or not models %}disabled{% endif %}>
+            <option value="" selected disabled>Select a model</option>
+            {% for model in models %}<option value="{{ model }}">{{ model }}</option>{% endfor %}
+          </select>
+          <button class="btn btn-primary w-100" type="submit" {% if not posting or not models %}disabled{% endif %}>Create tailored resume</button>
+        </form>
+      </div>
+    </div>
+    {% if recent_attempts %}
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body p-4">
+        <h2 class="h6 mb-3">Recent selection attempts</h2>
+        <ul class="list-unstyled mb-0">
+          {% for attempt in recent_attempts %}
+          <li class="mb-2"><a href="{{ url_for('resume_status', task_id=attempt.task_id) }}">{{ attempt.model }} · {{ attempt.state | replace('_', ' ') | title }}</a><div class="small text-secondary">{{ attempt.created_at }}</div></li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <h2 class="h5 mb-3">Job details</h2>
+        <dl class="details-grid mb-0">
+          <dt>Company</dt><dd>{{ job.company or '—' }}</dd>
+          <dt>Source</dt><dd>{{ job.source }}</dd>
+          <dt>Location</dt><dd>{{ job.location or '—' }}</dd>
+          <dt>Work arrangement</dt><dd>{{ job.remote_status | replace('_', ' ') | title }}</dd>
+          <dt>Salary</dt><dd>{{ job.salary_range or '—' }}</dd>
+          <dt>Posted</dt><dd>{{ job.posted_at or job.posted_text or '—' }}</dd>
+          <dt>Saved (UTC)</dt><dd>{{ job.processed_at }}</dd>
+          <dt>Job ID</dt><dd class="text-break small">{{ job.job_key }}</dd>
+        </dl>
+      </div>
+    </div>
+  </aside>
+</div>
+{% endblock %}

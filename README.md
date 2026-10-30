@@ -6,6 +6,19 @@
 
 Job Miner is an early job search prototype. Its current entry point asks for a job description, searches configured company boards, the US Adzuna API when credentials are set, Remote OK and Remotive for remote searches, and [Idealist](https://www.idealist.org/), and uses CrewAI to choose and organize postings. Both agents use the same local Ollama model, `openhermes` by default. It prints the results in the terminal; it does not apply to jobs or run on a schedule.
 
+## Browse saved jobs
+
+The local job browser lists every saved posting, including jobs without extracted prospect facts or an AI summary. Click a row to read the saved posting, source details, and any AI result. Search by title or company, filter by source or work arrangement, and move through pages of 25 jobs.
+
+```bash
+python -m pip install "Flask>=3.1,<4" "requests>=2.31,<3"
+python job_web.py
+```
+
+Open `http://127.0.0.1:5055` in your browser. The full `requirements.txt` also includes these dependencies. The browser reads `job_history.sqlite3` and the saved files referenced by it. A new checkout with no saved jobs shows an empty list. Styling is included locally, so the page does not need an internet connection. The browser binds to your computer only by default; stop it with Ctrl+C. Use `--port` to choose a different port.
+
+On a posting page, choose an installed Ollama text-generation model and confirm to start a tailored resume selection. Install the full `requirements.txt` and start Ollama before using this action. The status page refreshes every five seconds, showing the current stage and elapsed time. A model call may take several minutes; a second attempt appears only when the first result needs repair. The page shows validation errors if selection fails. Use **Cancel selection** on that page to stop a long run; stopping the GUI alone leaves the separate worker running. Successful selections and evidence reports are saved under the existing generated directories for review; the GUI does not render a DOCX before that review. The GUI also keeps a link to recent attempts on each posting page.
+
 ## Resume selection
 
 The separate resume workflow begins with `resume_cli.py`. It loads one saved posting or a local `.json`/`.txt` posting, then asks a local Ollama model through CrewAI to produce a job-specific selection JSON. It does not render a DOCX yet.

@@ -1,0 +1,91 @@
+{% extends "job_base.html" %}
+{% block title %}Saved jobs{% endblock %}
+{% block content %}
+<div class="d-flex align-items-end justify-content-between mb-4">
+  <div>
+    <h1 class="h2 mb-1">Saved jobs</h1>
+    <p class="text-secondary mb-0">{{ saved_total }} posting{% if saved_total != 1 %}s{% endif %} collected</p>
+  </div>
+</div>
+
+<form method="get" action="{{ url_for('job_list') }}" class="card border-0 shadow-sm mb-4">
+  <div class="card-body row g-3 align-items-end">
+    <div class="col-md-5">
+      <label class="form-label" for="q">Title or company</label>
+      <input class="form-control" id="q" name="q" type="search" value="{{ q }}" placeholder="Search saved jobs">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label" for="source">Source</label>
+      <select class="form-select" id="source" name="source">
+        <option value="">All sources</option>
+        {% for choice in sources %}<option value="{{ choice }}" {% if source == choice %}selected{% endif %}>{{ choice }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label" for="remote">Work arrangement</label>
+      <select class="form-select" id="remote" name="remote">
+        <option value="">All types</option>
+        <option value="remote" {% if remote == 'remote' %}selected{% endif %}>Remote</option>
+        <option value="hybrid" {% if remote == 'hybrid' %}selected{% endif %}>Hybrid</option>
+        <option value="on_site" {% if remote == 'on_site' %}selected{% endif %}>On-site</option>
+        <option value="unknown" {% if remote == 'unknown' %}selected{% endif %}>Unknown</option>
+      </select>
+    </div>
+    <div class="col-md-2 d-flex gap-2">
+      <button class="btn btn-primary flex-grow-1" type="submit">Apply</button>
+      <a class="btn btn-outline-secondary" href="{{ url_for('job_list') }}">Clear</a>
+    </div>
+  </div>
+</form>
+
+<div class="card border-0 shadow-sm overflow-hidden">
+  <div class="card-header bg-white border-0 px-4 pt-3 pb-2 d-flex justify-content-between">
+    <span class="fw-semibold">{{ total }} result{% if total != 1 %}s{% endif %}</span>
+    <span class="text-secondary small">Newest saved first</span>
+  </div>
+  {% if jobs %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr>
+        <th scope="col">Job</th><th scope="col">Company</th><th scope="col">Source</th>
+        <th scope="col">Location</th><th scope="col">Work arrangement</th>
+        <th scope="col">Salary</th><th scope="col">Saved (UTC)</th>
+      </tr></thead>
+      <tbody>
+      {% for job in jobs %}
+      <tr data-href="{{ url_for('job_detail', job_id=job.job_key, q=q, source=source, remote=remote, page=page) }}">
+        <td class="job-title"><a href="{{ url_for('job_detail', job_id=job.job_key, q=q, source=source, remote=remote, page=page) }}">{{ job.title }}</a></td>
+        <td>{{ job.company or '—' }}</td>
+        <td>{{ job.source }}</td>
+        <td>{{ job.location or '—' }}</td>
+        <td>{{ job.remote_status | replace('_', ' ') | title }}</td>
+        <td>{{ job.salary_range or '—' }}</td>
+        <td class="text-nowrap">{{ job.processed_at }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center py-5 px-3 text-secondary">
+    {% if saved_total == 0 %}
+      <h2 class="h5 text-body">No saved jobs yet</h2>
+      <p class="mb-0">Jobs saved by the search workflow will appear here.</p>
+    {% else %}
+      <h2 class="h5 text-body">No matching jobs</h2>
+      <p class="mb-0">Try a different search or clear the filters.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{% if page_count > 1 %}
+<nav class="mt-4" aria-label="Job list pages">
+  <ul class="pagination justify-content-end">
+    <li class="page-item {% if page == 1 %}disabled{% endif %}"><a class="page-link" href="{{ url_for('job_list', q=q, source=source, remote=remote, page=page-1) }}">Previous</a></li>
+    <li class="page-item disabled"><span class="page-link">Page {{ page }} of {{ page_count }}</span></li>
+    <li class="page-item {% if page == page_count %}disabled{% endif %}"><a class="page-link" href="{{ url_for('job_list', q=q, source=source, remote=remote, page=page+1) }}">Next</a></li>
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}

@@ -74,14 +74,20 @@ def prepare_run(posting, *, model, rewrite_mode, inventory_path=INVENTORY_PATH,
     return run_dir
 
 
-def generate_selection(run_dir, *, selection_dir=PROJECT_DIR / "generated_selections"):
+def generate_selection(run_dir, *, selection_dir=PROJECT_DIR / "generated_selections",
+                       on_progress=None):
     """Run the selector and save only parseable, source-linked selections."""
+    def progress(stage):
+        if on_progress is not None:
+            on_progress(stage)
+
     run_dir = Path(run_dir)
     manifest_path = run_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["validation_report"] = str(run_dir / "validation_report.json")
     validation = {"valid": False, "errors": [], "human_review_required": True}
     try:
+        progress("Reading posting and accomplishment inventory")
         inventory = yaml.safe_load((run_dir / "inventory.yaml").read_text(encoding="utf-8"))
         if not isinstance(inventory, dict):
             raise ValueError("Inventory must be a YAML object")
@@ -90,6 +96,7 @@ def generate_selection(run_dir, *, selection_dir=PROJECT_DIR / "generated_select
         repair_feedback = ""
         for attempt in (1, 2):
             manifest["attempts"] = attempt
+            progress(f"Generating selection — attempt {attempt} of up to 2")
             raw = run_selection_agent(
                 posting_text, inventory, policy + repair_feedback,
                 model=manifest["model"],
@@ -97,6 +104,7 @@ def generate_selection(run_dir, *, selection_dir=PROJECT_DIR / "generated_select
             )
             (run_dir / "selection_raw.txt").write_text(raw, encoding="utf-8")
             (run_dir / f"selection_raw_attempt_{attempt}.txt").write_text(raw, encoding="utf-8")
+            progress(f"Validating selection — attempt {attempt}")
             errors = []
             try:
                 selection = parse_selection(raw)
@@ -123,6 +131,7 @@ def generate_selection(run_dir, *, selection_dir=PROJECT_DIR / "generated_select
                 )
             if not errors:
                 break
+        progress("Building evidence report")
         evidence = build_evidence_report(
             selection, inventory, (run_dir / "posting.txt").read_text(encoding="utf-8")
         )
@@ -141,6 +150,7 @@ def generate_selection(run_dir, *, selection_dir=PROJECT_DIR / "generated_select
         )
         selection_dir = Path(selection_dir).resolve()
         selection_dir.mkdir(parents=True, exist_ok=True)
+        progress("Saving validated selection")
         filename = f"{run_dir.parent.name}_{run_dir.name}_selection.json"
         selection_path = selection_dir / filename
         selection_path.write_text(json.dumps(selection, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

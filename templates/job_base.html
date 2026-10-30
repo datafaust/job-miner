@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Jobs{% endblock %} · Job Miner</title>
+  <link href="{{ url_for('static', filename='bootstrap.min.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='job_web.css') }}" rel="stylesheet">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="app-header py-3 mb-4">
+    <div class="container-fluid px-4 d-flex align-items-center gap-3">
+      <span class="brand-mark" aria-hidden="true">JM</span>
+      <div>
+        <div class="fw-bold fs-5 lh-1">Job Miner</div>
+        <div class="small text-secondary mt-1">Saved jobs</div>
+      </div>
+    </div>
+  </header>
+  <main class="container-fluid px-4 pb-5">
+    {% block content %}{% endblock %}
+  </main>
+  <script src="{{ url_for('static', filename='job_web.js') }}"></script>
+</body>
+</html>
