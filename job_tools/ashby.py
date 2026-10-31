@@ -91,6 +91,9 @@ def _locations(job):
 
 def _matches_location(job, location):
     workplace = str(job.get("workplaceType") or "").casefold()
+    remote_role = workplace == "remote" or (
+        job.get("isRemote") is True and workplace not in {"hybrid", "onsite", "on-site"}
+    )
     for label, postal in _locations(job):
         locality = str(postal.get("addressLocality") or "").casefold()
         region = str(postal.get("addressRegion") or "").casefold()
@@ -102,18 +105,11 @@ def _matches_location(job, location):
                 return True
             if locality in {"new york", "new york city"} and region in {"", "ny", "new york"} and country in {"", "us", "usa", "united states"}:
                 return True
-        elif location == "remote" and workplace == "remote":
-            # A remote role with a country or city restriction must still fit the
-            # workflow's US/NYC remote choice.
-            if greenhouse_matches_location({"location": {"name": label}}, "remote"):
-                return True
-            if label and greenhouse_matches_location({"location": {"name": f"Remote - {label}"}}, "remote"):
-                return True
-            if re.search(r"\bnew york,\s*new york\b", label, re.IGNORECASE):
-                return True
-            if locality in {"new york", "new york city"} and region in {"", "ny", "new york"} and country in {"", "us", "usa", "united states"}:
-                return True
-            if not label and not postal:
+        elif location == "remote" and remote_role:
+            if country and country not in {"us", "usa", "united states", "united states of america"}:
+                continue
+            remote_label = label if re.search(r"\bremote\b", label, re.I) else f"Remote - {label}" if label else "Remote"
+            if greenhouse_matches_location({"location": {"name": remote_label}}, "remote"):
                 return True
     return False
 

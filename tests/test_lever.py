@@ -46,6 +46,13 @@ class LeverTests(unittest.TestCase):
         self.assertEqual(job_history.job_key(jobs[0]["hostedUrl"]),
                          job_history.job_key(jobs[0]["applyUrl"]))
 
+    def test_new_york_and_ambiguous_remote_labels(self):
+        jobs = [posting("ny", "New York"), posting("time-zone", "Eastern Time", "remote")]
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(job_history, "HISTORY_DB_PATH", Path(directory) / "history.sqlite3"):
+                self.assertEqual([item["job"] for item in lever_candidates(jobs, "data analyst", "Palantir", "nyc")], [jobs[0]])
+                self.assertEqual([item["job"] for item in lever_candidates(jobs, "data analyst", "Palantir", "remote")], [jobs[1]])
+
     def test_save_and_extract(self):
         job = posting("abc123")
         job["lists"] = [{"text": "Requirements", "content": "<ul><li>SQL</li></ul>"}]

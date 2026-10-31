@@ -56,14 +56,6 @@ def _contains(text, phrase):
     return f" {normalize(phrase)} " in f" {normalize(text)} "
 
 
-def title_may_match(query, title):
-    """Screen listing titles before fetching Idealist details."""
-    profile = role_profile(query)
-    if profile is None:
-        return True
-    return title_strength(query, title) > 0
-
-
 def title_strength(query, title):
     """Rank primary titles ahead of related phrases and broad title terms."""
     profile = role_profile(query)
@@ -110,16 +102,14 @@ def _responsibility_text(description):
 
 
 def is_relevant(query, title, description):
-    """Primary title, or broader title plus two distinct duty signals."""
+    """Primary title, broader title with two duty signals, or other title with three."""
     profile = role_profile(query)
     if profile is None:
         return True
     strength = title_strength(query, title)
     if strength == 3:
         return True
-    if not strength:
-        return False
     duties = _responsibility_text(description)
     signals = {normalize(phrase) for phrase in profile["description_signals"]
                if _contains(duties, phrase)}
-    return len(signals) >= 2
+    return len(signals) >= (2 if strength else 3)

@@ -8,7 +8,6 @@ from urllib.parse import urlencode
 from crewai.tools import tool
 from job_tools.job_history import filter_unprocessed
 from job_tools.location import normalize_search_location
-from job_tools.relevance import title_may_match
 from job_tools.workflow_config import LIMITS
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -86,8 +85,7 @@ class SearchTools():
                 "link": link
             })
 
-        unprocessed_results = [job for job in filter_unprocessed(results)
-                               if title_may_match(query, job["text"].splitlines()[0])]
+        unprocessed_results = filter_unprocessed(results)
         shortlist = idealist_shortlist(unprocessed_results)
         print(
             f"Search recovered {len(results)} listings; "

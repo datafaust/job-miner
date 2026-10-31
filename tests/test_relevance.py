@@ -5,7 +5,7 @@ from job_tools.greenhouse import greenhouse_candidates
 from job_tools.lever import lever_candidates
 from job_tools.remoteok import remoteok_candidates
 from job_tools.remotive import remotive_candidates
-from job_tools.relevance import is_relevant, title_may_match
+from job_tools.relevance import is_relevant
 
 
 class RelevanceTests(unittest.TestCase):
@@ -36,9 +36,17 @@ class RelevanceTests(unittest.TestCase):
         )
         self.assertTrue(is_relevant("data analyst", "Research Analyst", description))
 
-    def test_description_only_and_partial_word_do_not_pass(self):
+    def test_unconventional_title_requires_three_duty_signals(self):
         self.assertFalse(is_relevant("data analyst", "Program Manager", "Analyze data with SQL."))
-        self.assertFalse(title_may_match("data analyst", "Psychoanalyst"))
+        self.assertTrue(is_relevant(
+            "data analyst", "Operations Associate",
+            "Responsibilities\nAnalyze data with SQL and build dashboards.",
+        ))
+        self.assertFalse(is_relevant(
+            "data analyst", "Operations Associate",
+            "Responsibilities\nManage vendors.\nQualifications\nSQL, dashboards, and data analysis required.",
+        ))
+        self.assertFalse(is_relevant("data analyst", "Psychoanalyst", "Coordinate outreach."))
 
     def test_unconfigured_queries_keep_existing_matching(self):
         self.assertTrue(is_relevant("python developer", "Developer", "Python"))
@@ -85,7 +93,7 @@ class RelevanceTests(unittest.TestCase):
                                "remoteok": remoteok_jobs, "remotive": remotive_jobs}[module][1]])
 
     def test_related_title_can_pass_without_literal_query_words(self):
-        description = "Responsibilities\nWrite code and build applications."
+        description = "Responsibilities\nDo software development and build applications."
         jobs = {
             "greenhouse": {"title": "Web Developer", "absolute_url": "https://example.com/3",
                            "content": description},
@@ -107,6 +115,16 @@ class RelevanceTests(unittest.TestCase):
                 else:
                     matches = remotive_candidates([job], "software engineer")
             self.assertEqual(len(matches), 1, source)
+
+    def test_unconventional_title_reaches_board_candidates_with_three_duty_signals(self):
+        job = {
+            "title": "Operations Associate",
+            "absolute_url": "https://example.com/operations-associate",
+            "content": "<h2>Responsibilities</h2><p>Analyze data with SQL and build dashboards.</p>",
+        }
+        with patch("job_tools.greenhouse.filter_unprocessed", side_effect=lambda results: results):
+            matches = greenhouse_candidates([job], "data analyst")
+        self.assertEqual([item["job"] for item in matches], [job])
 
 
 if __name__ == "__main__":

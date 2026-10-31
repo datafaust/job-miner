@@ -4,7 +4,7 @@ import re
 
 
 NYC_LABEL = re.compile(
-    r"\b(?:nyc|new york city|new york,\s*(?:ny|us|usa)|"
+    r"\b(?:nyc|new york city|new york,\s*(?:ny|new york|us|usa)|"
     r"manhattan|brooklyn|queens|bronx|staten island)\b",
     re.IGNORECASE,
 )
@@ -17,6 +17,16 @@ REMOTE_US = re.compile(
 REMOTE_NYC = re.compile(
     r"\bremote\b[\s()/,-]*(?:(?:in|from|for|within)\s+)?(?:the\s+)?"
     r"(?:nyc|new york city|new york,\s*ny)\b",
+    re.IGNORECASE,
+)
+REMOTE_WORD = re.compile(r"\bremote\b", re.IGNORECASE)
+# Clear foreign-only restrictions should stay out; other remote labels are
+# retained so an unfamiliar shorthand cannot hide a potentially eligible job.
+FOREIGN_ONLY_REMOTE = re.compile(
+    r"\b(?:canada|india|uk|united kingdom|london|ireland|dublin|germany|berlin|"
+    r"poland|romania|europe|eu|emea|apac|australia|france|spain|portugal|"
+    r"netherlands|brazil|mexico|singapore|japan|philippines|south africa|"
+    r"united arab emirates|uae|israel)\b",
     re.IGNORECASE,
 )
 
@@ -32,7 +42,7 @@ def normalize_search_location(value):
 
 
 def greenhouse_matches_location(job, location):
-    """Include only explicit NYC or US/NYC remote location labels."""
+    """Match NYC labels and retain remote jobs without a foreign-only restriction."""
     location = normalize_search_location(location)
     field = job.get("location") or {}
     name = field.get("name", "") if isinstance(field, dict) else ""
@@ -40,7 +50,9 @@ def greenhouse_matches_location(job, location):
         return False
     name = name.strip()
     if location == "nyc":
-        return bool(NYC_LABEL.search(name))
-    return name.casefold() == "remote" or bool(
-        REMOTE_US.search(name) or REMOTE_NYC.search(name)
-    )
+        return name.casefold() == "new york" or bool(NYC_LABEL.search(name))
+    if not REMOTE_WORD.search(name):
+        return False
+    if REMOTE_US.search(name) or REMOTE_NYC.search(name):
+        return True
+    return not FOREIGN_ONLY_REMOTE.search(name)
