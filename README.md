@@ -43,8 +43,8 @@ Validation checks JSON shape, source IDs and ownership, ordering, duplicates, bu
 1. [`main.py`](main.py) visits each board in [`config/greenhouse_boards.json`](config/greenhouse_boards.json) and fetches its jobs with full descriptions. The entered `nyc` or `remote` choice filters Greenhouse jobs by their published location labels before ranking. Configured roles also pass through the relevance check described below. Candidates from different boards are taken in rounds, with **at most two Greenhouse jobs summarized per run** across all boards by default. A failed board request is reported, and the search continues through the remaining boards and Idealist.
 2. Each processed Greenhouse job's complete API listing is saved as `jobs/JOB_greenhouse_<board-token>_<id>.json`. Its text is given to the organizer, and its Greenhouse ID is recorded in history. Other Greenhouse postings remain eligible for later runs.
    Lever boards run next with the same location choices and a separate cap of two summaries. Their saved API listings are `jobs/JOB_lever_<site>_<id>.json`. Ashby boards in [`config/ashby_boards.json`](config/ashby_boards.json) then run with their own cap of two summaries; saved listings are `jobs/JOB_ashby_<board>_<id>.json`.
-3. For `nyc`, the Idealist search adds `New York City` to the keywords; this is a keyword preference, not a strict location filter. For `remote`, it uses Idealist's Remote location-type filter with the original keywords. The search reports how many listings it recovered and how many remain after filtering local history, writes the remaining listings to `output.json`, and returns up to three unprocessed listings by default.
-4. The selection agent in [`job_agents.py`](job_agents.py) recommends the first Idealist listing to process. The detail tool expands postings and checks configured-role relevance before saving them as `jobs/JOB_idealist_<id>.txt` and recording them in history. By default, the workflow saves one Idealist job per run; when configured to save more, it considers the rest of the shortlist in search order.
+3. For `nyc`, the Idealist search adds `New York City` to the keywords; this is a keyword preference, not a strict location filter. For `remote`, it uses Idealist's Remote location-type filter with the original keywords. The search defaults to Best Match; `--idealist-sort newest` puts recently posted jobs first. It reports how many listings it recovered and how many remain after filtering local history, writes the remaining listings to `output.json`, and returns up to 20 unprocessed listings by default.
+4. The selection agent in [`job_agents.py`](job_agents.py) recommends the first Idealist listing to process. With `--no-summary`, the workflow skips that agent and uses search order. The detail tool expands postings and checks configured-role relevance before saving them as `jobs/JOB_idealist_<id>.txt` and recording them in history. By default, the workflow saves up to five Idealist jobs per run, considering the rest of the shortlist in search order.
 5. For each selected posting, the organizer receives the actual posting text and can write a summary or say that a summary is unnecessary. Its decision is saved in `job_history.sqlite3`. The terminal prints the source URL, search listing, decision, and original posting text.
 6. A separate, rule-based extractor saves source-backed title, company, salary range, posting date or source age, work arrangement, and location in the `prospective_jobs` table. It runs when a posting is saved, independently of the AI summary.
 
@@ -52,7 +52,7 @@ All saved job files go into the main `jobs/` folder in the directory where you r
 
 ### Workflow limits
 
-Edit [`config/workflow_limits.json`](config/workflow_limits.json) to change per-run job caps. `idealist_candidates_per_run` controls how many filtered Idealist search results reach the selection step; `idealist_jobs_per_run` controls how many of that shortlist can be saved and summarized. Each API source, including Adzuna, has its own saved-job cap. Values must be positive integers, and Idealist's saved-job cap cannot exceed its candidate cap. The file is read when a Python run starts, so rerun the command after editing it. API request cooldowns are separate from these job caps.
+Edit [`config/workflow_limits.json`](config/workflow_limits.json) to change per-run job caps. `idealist_candidates_per_run` controls how many filtered Idealist search results reach the workflow; `idealist_jobs_per_run` controls how many of that shortlist can be saved and summarized. Each API source, including Adzuna, has its own saved-job cap. Values must be positive integers, and Idealist's saved-job cap cannot exceed its candidate cap. The file is read when a Python run starts, so rerun the command after editing it. API request cooldowns are separate from these job caps.
 
 ### Role relevance
 
@@ -207,7 +207,15 @@ To use another installed Ollama model, pass its name. For example, after running
 python main.py --model llama3.2
 ```
 
-Enter job keywords when prompted, then enter `nyc` (also accepts `New York`) or `remote`. Press Enter to use the defaults in `.env`: `JOB_SEARCH_KEYWORDS=data analyst` and `JOB_SEARCH_LOCATION=nyc`. A missing keyword or location with no environment default is an error. Other location values are rejected for now. Greenhouse considers explicit NYC labels for `nyc`, and plain `Remote` or explicitly US/NYC remote labels for `remote`; ambiguous or foreign-only remote labels are skipped. Neither choice changes the Greenhouse API request. Both agents use the selected model, then process matching postings and print the organized results. The run is interactive and may take time because it requests every configured board, uses a browser, and runs a local model.
+Enter job keywords when prompted, then enter `nyc` (also accepts `New York`) or `remote`. Press Enter to use the defaults in `.env`: `JOB_SEARCH_KEYWORDS=data analyst` and `JOB_SEARCH_LOCATION=nyc`. A missing keyword or location with no environment default is an error. Other location values are rejected for now. Greenhouse considers explicit NYC labels for `nyc`, and plain `Remote` or explicitly US/NYC remote labels for `remote`; ambiguous or foreign-only remote labels are skipped. Neither choice changes the Greenhouse API request. Both agents use the selected model, then process matching postings and print the organized results. The run may take time because it requests every configured board and uses a browser.
+
+For a noninteractive scheduled run, use `--keywords` and `--location` (or set both values in `.env`) and `--idealist-sort newest`. For example, from the repository directory:
+
+```sh
+.venv/bin/python main.py --keywords "data analyst" --location nyc --idealist-sort newest --no-summary
+```
+
+When standard input is not a terminal, the command uses the supplied arguments or `.env` values without prompting. `--no-summary` also skips the Idealist selection agent, so this mode does not require Ollama. Run scheduled commands from the repository directory so the `jobs/` folder and `output.json` are written there. Avoid overlapping runs because both use the same search snapshot.
 
 ## Other files
 
@@ -220,7 +228,7 @@ Enter job keywords when prompted, then enter `nyc` (also accepts `New York`) or 
 
 ## Current limitations
 
-- By default, Greenhouse and Lever each attempt summaries for at most two matching, unprocessed jobs per run. Idealist offers at most three unprocessed, title-relevant listings to the selection agent and processes one. Change these values in `config/workflow_limits.json`. The rule-based relevance check can miss roles with unusual titles or descriptions that lack clear responsibility text.
+- Idealist searches only the first results page and passes up to 20 unprocessed listings to the workflow, saving up to five relevant jobs. Change these values in `config/workflow_limits.json`. The rule-based relevance check can miss roles with unusual titles or descriptions that lack clear responsibility text.
 - Scraping relies on fixed Idealist page selectors, which can break when the site layout changes.
 - The organizer agent has no tools of its own; it summarizes the scraped posting supplied by the workflow. Its summary should be checked against the original text printed below it.
 - Automated tests cover job history and the workflow with mocked browser and model calls; a live search still depends on Idealist, Chrome, and Ollama.

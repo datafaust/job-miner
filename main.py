@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import sys
 import requests
 import traceback
 from datetime import datetime, timezone
@@ -62,11 +63,12 @@ def log_summary_attempt(url, title, model, raw_output, status, reason, error=Non
 
 class JobCrew:
 
-  def __init__(self, job_ask, location, model="openhermes", summarize=True):
+  def __init__(self, job_ask, location, model="openhermes", summarize=True, idealist_sort="relevance"):
     self.job_ask = job_ask
     self.location = location
     self.model = model
     self.summarize = summarize
+    self.idealist_sort = idealist_sort
 
   def run(self):
     agents = JobAgents(model=self.model)
@@ -244,13 +246,13 @@ class JobCrew:
       except (OSError, ValueError) as error:
         print(f"Remotive search failed: {error}")
 
-    search_results = json.loads(SearchTools.search_idealist.run(self.job_ask, self.location))
+    search_results = json.loads(SearchTools.search_idealist.run(self.job_ask, self.location, self.idealist_sort))
     if not search_results:
       results.append("No unprocessed Idealist jobs found for this search.")
       return "\n\n".join(results)
 
     shortlist = search_results[:LIMITS.idealist_candidates_per_run]
-    selected = self._select_candidate(agents, tasks, shortlist, "Idealist")
+    selected = self._select_candidate(agents, tasks, shortlist, "Idealist") if self.summarize else shortlist[0]
     remaining = [selected] + [job for job in shortlist if job["link"] != selected["link"]]
     processed_count = 0
     for candidate in remaining:
@@ -356,6 +358,10 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser(description="Find and organize Greenhouse, Lever, Ashby, Adzuna, Remote OK, Remotive, and Idealist job postings.")
   parser.add_argument("--model", default="openhermes", help="Ollama model to use (default: openhermes)")
   parser.add_argument("--no-summary", action="store_true", help="Save matching jobs without AI summaries")
+  parser.add_argument("--keywords", help="Job search keywords (uses JOB_SEARCH_KEYWORDS if omitted)")
+  parser.add_argument("--location", help="Search location: nyc or remote (uses JOB_SEARCH_LOCATION if omitted)")
+  parser.add_argument("--idealist-sort", choices=("relevance", "newest"), default="relevance",
+                      help="Idealist result order (default: relevance; use newest for scheduled runs)")
   parser.add_argument("--saved-summaries", action="store_true", help="Show saved AI results without searching")
   args = parser.parse_args()
 
@@ -377,18 +383,23 @@ if __name__ == "__main__":
   load_dotenv(PROJECT_DIR / ".env")
   print("## Welcome to Job Finder")
   print('-------------------------------')
-  keyword_default = os.getenv("JOB_SEARCH_KEYWORDS", "").strip()
-  location_default = os.getenv("JOB_SEARCH_LOCATION", "").strip()
-  keyword_hint = f" [{keyword_default}]" if keyword_default else ""
-  location_hint = f" [{location_default}]" if location_default else ""
-  entered_keywords = input(f"What kind of job are you looking for?{keyword_hint}\n")
-  entered_location = input(f"Location (nyc or remote)?{location_hint}\n")
+  if args.keywords is not None or args.location is not None or not sys.stdin.isatty():
+    entered_keywords = args.keywords or ""
+    entered_location = args.location or ""
+  else:
+    keyword_default = os.getenv("JOB_SEARCH_KEYWORDS", "").strip()
+    location_default = os.getenv("JOB_SEARCH_LOCATION", "").strip()
+    keyword_hint = f" [{keyword_default}]" if keyword_default else ""
+    location_hint = f" [{location_default}]" if location_default else ""
+    entered_keywords = input(f"What kind of job are you looking for?{keyword_hint}\n")
+    entered_location = input(f"Location (nyc or remote)?{location_hint}\n")
   try:
     job_ask, location = resolve_search_inputs(entered_keywords, entered_location)
   except ValueError as error:
     parser.error(str(error))
 
-  job_crew = JobCrew(job_ask, location, model=args.model, summarize=not args.no_summary)
+  job_crew = JobCrew(job_ask, location, model=args.model, summarize=not args.no_summary,
+                    idealist_sort=args.idealist_sort)
   before = snapshot()
   try:
     result = job_crew.run()

@@ -22,6 +22,11 @@ class SearchToolsTests(unittest.TestCase):
             parse_qs(urlsplit(remote).query),
             {"q": ["data analyst"], "locationType": ["REMOTE"]},
         )
+        newest = idealist_search_url("data analyst", "remote", "newest")
+        self.assertEqual(
+            parse_qs(urlsplit(newest).query),
+            {"q": ["data analyst"], "locationType": ["REMOTE"], "sort": ["newest"]},
+        )
 
     def test_idealist_search_requires_both_inputs(self):
         with self.assertRaisesRegex(ValueError, "keywords are required"):
@@ -30,6 +35,8 @@ class SearchToolsTests(unittest.TestCase):
             idealist_search_url("data analyst", " ")
         with self.assertRaisesRegex(ValueError, "nyc.*remote"):
             idealist_search_url("data analyst", "Boston")
+        with self.assertRaisesRegex(ValueError, "sort must be"):
+            idealist_search_url("data analyst", "nyc", "random")
 
     def test_idealist_shortlist_uses_configured_limit(self):
         results = list(range(10))

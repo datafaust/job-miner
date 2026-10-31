@@ -77,7 +77,7 @@ class JobWorkflowTests(unittest.TestCase):
             ):
                 output = JobCrew("software engineer", "nyc", model="qwen2.5:1.5b").run()
 
-        search.search_idealist.run.assert_called_once_with("software engineer", "nyc")
+        search.search_idealist.run.assert_called_once_with("software engineer", "nyc", "relevance")
         self.scrape_greenhouse.assert_called_once_with("stripe")
         browser.scrape_idealist_job_details.run.assert_called_once_with(
             candidates[0]["link"], "software engineer"
@@ -131,6 +131,22 @@ class JobWorkflowTests(unittest.TestCase):
             finally:
                 os.chdir(old_cwd)
 
+    def test_no_summary_uses_search_order_without_selection_agent(self):
+        candidates = [
+            {"text": f"Data Analyst {number}\nExample", "link": f"https://example.com/{number}"}
+            for number in range(2)
+        ]
+        with patch("main.SearchTools") as search, patch("main.BrowserTools") as browser, \
+             patch("main.Crew") as crew:
+            search.search_idealist.run.return_value = json.dumps(candidates)
+            browser.scrape_idealist_job_details.run.return_value = "Posting text"
+            output = JobCrew("data analyst", "nyc", summarize=False, idealist_sort="newest").run()
+
+        search.search_idealist.run.assert_called_once_with("data analyst", "nyc", "newest")
+        browser.scrape_idealist_job_details.run.assert_called_once_with(candidates[0]["link"], "data analyst")
+        crew.assert_not_called()
+        self.assertIn(candidates[0]["link"], output)
+
     def test_idealist_tries_next_listing_after_relevance_rejection(self):
         candidates = [
             {"text": "Financial Analyst\nExample", "link": "https://example.com/1"},
@@ -154,7 +170,7 @@ class JobWorkflowTests(unittest.TestCase):
             JobCrew("data analyst", "remote").run()
 
         candidates.assert_called_once_with([{"title": "Example"}], "data analyst", "Stripe", "remote")
-        search.search_idealist.run.assert_called_once_with("data analyst", "remote")
+        search.search_idealist.run.assert_called_once_with("data analyst", "remote", "relevance")
 
     def test_remoteok_result_is_saved_and_summarized(self):
         job = {"id": "123", "position": "Data Analyst", "url": "https://remoteok.com/remote-jobs/123-data-analyst"}
@@ -405,10 +421,11 @@ class JobWorkflowTests(unittest.TestCase):
             search.search_idealist.run.return_value = "[]"
             output = JobCrew("engineer", "nyc").run()
 
-        self.assertEqual(save.call_count, MAX_GREENHOUSE_SUMMARIES)
-        self.assertEqual(kickoff.call_count, MAX_GREENHOUSE_SUMMARIES)
-        self.assertEqual(self.record_ai_result.call_count, MAX_GREENHOUSE_SUMMARIES)
-        self.assertNotIn(f"gh_jid={MAX_GREENHOUSE_SUMMARIES + 1}", output)
+        expected = min(len(candidates), MAX_GREENHOUSE_SUMMARIES)
+        self.assertEqual(save.call_count, expected)
+        self.assertEqual(kickoff.call_count, expected)
+        self.assertEqual(self.record_ai_result.call_count, expected)
+        self.assertNotIn(f"gh_jid={expected + 1}", output)
         self.assertIn("No unprocessed Idealist jobs", output)
 
     def test_idealist_can_process_multiple_jobs_when_configured(self):

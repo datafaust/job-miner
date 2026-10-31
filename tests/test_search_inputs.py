@@ -1,4 +1,8 @@
 import unittest
+import os
+import subprocess
+import sys
+from pathlib import Path
 from unittest.mock import patch
 
 from main import resolve_search_inputs
@@ -33,6 +37,19 @@ class SearchInputTests(unittest.TestCase):
         }):
             with self.assertRaisesRegex(ValueError, "nyc.*remote"):
                 resolve_search_inputs("", "")
+
+    def test_noninteractive_cli_fails_without_inputs_instead_of_prompting(self):
+        env = os.environ.copy()
+        env["JOB_SEARCH_KEYWORDS"] = ""
+        env["JOB_SEARCH_LOCATION"] = ""
+        result = subprocess.run(
+            [sys.executable, "main.py", "--keywords", "", "--location", ""],
+            cwd=Path(__file__).resolve().parents[1], env=env, input="", text=True,
+            capture_output=True, timeout=15,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Enter job keywords", result.stderr)
+        self.assertNotIn("EOFError", result.stderr)
 
 
 if __name__ == "__main__":
