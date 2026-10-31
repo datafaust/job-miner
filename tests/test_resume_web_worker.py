@@ -30,7 +30,7 @@ class ResumeWebWorkerTests(unittest.TestCase):
 
         def prepare(posting, *, model, rewrite_mode):
             self.assertEqual((posting["job_id"], model, rewrite_mode),
-                             ("greenhouse:123", "qwen2.5:7b", "light"))
+                             ("greenhouse:123", "qwen2.5:7b", "none"))
             run_dir.mkdir()
             return run_dir
 
@@ -55,10 +55,14 @@ class ResumeWebWorkerTests(unittest.TestCase):
         self.assertNotIn("selection_file", status)
 
     def test_success_stops_at_review(self):
+        status = tasks.read_status(self.task_dir)
+        status["rewrite_mode"] = "targeted"
+        tasks.write_status(self.task_dir, status)
         run_dir = self.root / "run"
         selection = self.root / "selection.json"
 
         def prepare(posting, *, model, rewrite_mode):
+            self.assertEqual(rewrite_mode, "targeted")
             run_dir.mkdir()
             return run_dir
 

@@ -28,7 +28,7 @@ python resume_cli.py --job-id greenhouse:8172487 --model qwen2.5:7b --rewrite-mo
 python resume_cli.py --posting-file /path/to/posting.txt --job-title "Data Engineer" --job-url https://example.com/jobs/123 --model openhermes
 ```
 
-`--job-id` accepts the stable IDs displayed by `python main.py --saved-summaries`; `--posting-file` accepts a saved source JSON or a plain text posting. For plain text, the first nonempty line is used as the title unless `--job-title` is supplied. A local posting without a URL receives a content-derived `local:` ID and a null URL. `--model` defaults to `openhermes`, as in `main.py`; `--rewrite-mode` accepts `none`, `light` (default), or `targeted`.
+`--job-id` accepts the stable IDs displayed by `python main.py --saved-summaries`; `--posting-file` accepts a saved source JSON or a plain text posting. For plain text, the first nonempty line is used as the title unless `--job-title` is supplied. A local posting without a URL receives a content-derived `local:` ID and a null URL. `--model` defaults to `openhermes`, as in `main.py`; `--rewrite-mode` accepts `none`, `light` (default), or `targeted`. The browser’s Bullet mode dropdown offers the same modes and defaults to No changes (`none`).
 
 The selector requests an 8,192-token Ollama context and lets Ollama generate until the model stops (`num_predict=-1`). A 20-minute request timeout remains in place. These settings are recorded in each run manifest.
 

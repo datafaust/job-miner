@@ -36,7 +36,8 @@ def run(task_dir):
         set_stage("Loading saved posting")
         posting = load_saved_posting(status["job_id"])
         set_stage("Preparing resume inputs")
-        run_dir = prepare_run(posting, model=status["model"], rewrite_mode="light")
+        run_dir = prepare_run(posting, model=status["model"],
+                              rewrite_mode=status.get("rewrite_mode", "none"))
         status["run_dir"] = str(run_dir)
         write_status(task_dir, status)
         selection_path = generate_selection(run_dir, on_progress=set_stage)

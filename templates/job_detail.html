@@ -50,6 +50,12 @@
             <option value="" selected disabled>Select a model</option>
             {% for model in models %}<option value="{{ model }}">{{ model }}</option>{% endfor %}
           </select>
+          <label class="form-label" for="rewrite_mode">Bullet mode</label>
+          <select class="form-select mb-3" id="rewrite_mode" name="rewrite_mode">
+            <option value="none" selected>No changes (none)</option>
+            <option value="light">Light edits (light)</option>
+            <option value="targeted">Targeted edits (targeted)</option>
+          </select>
           <button class="btn btn-primary w-100" type="submit" {% if not posting or not models %}disabled{% endif %}>Create tailored resume</button>
         </form>
       </div>
@@ -60,7 +66,14 @@
         <h2 class="h6 mb-3">Recent selection attempts</h2>
         <ul class="list-unstyled mb-0">
           {% for attempt in recent_attempts %}
-          <li class="mb-2"><a href="{{ url_for('resume_status', task_id=attempt.task_id) }}">{{ attempt.model }} · {{ attempt.state | replace('_', ' ') | title }}</a><div class="small text-secondary">{{ attempt.created_at }}</div></li>
+          <li class="mb-2"><a href="{{ url_for('resume_status', task_id=attempt.task_id) }}">{{ attempt.model }} · {{ attempt.state | replace('_', ' ') | title }}</a><div class="small text-secondary">{{ attempt.created_at }}</div>
+            {% if attempt.state == 'ready_for_review' %}
+            <form class="mt-2" method="post" action="{{ url_for('resume_render', task_id=attempt.task_id) }}">
+              <input type="hidden" name="token" value="{{ render_token }}">
+              <button class="btn btn-success" type="submit">Generate resume</button>
+            </form>
+            {% endif %}
+          </li>
           {% endfor %}
         </ul>
       </div>

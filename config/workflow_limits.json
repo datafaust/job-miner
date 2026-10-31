@@ -1,10 +1,10 @@
 {
-  "greenhouse_jobs_per_run": 2,
-  "lever_jobs_per_run": 2,
-  "ashby_jobs_per_run": 2,
-  "adzuna_jobs_per_run": 2,
-  "remoteok_jobs_per_run": 2,
-  "remotive_jobs_per_run": 2,
-  "idealist_candidates_per_run": 5,
-  "idealist_jobs_per_run": 2
+  "greenhouse_jobs_per_run": 1000,
+  "lever_jobs_per_run": 1000,
+  "ashby_jobs_per_run": 1000,
+  "adzuna_jobs_per_run": 1000,
+  "remoteok_jobs_per_run": 1000,
+  "remotive_jobs_per_run": 1000,
+  "idealist_candidates_per_run": 1000,
+  "idealist_jobs_per_run": 1000
 }

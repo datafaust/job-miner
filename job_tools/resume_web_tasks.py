@@ -25,6 +25,28 @@ def read_status(task_dir):
     return json.loads((Path(task_dir) / "status.json").read_text(encoding="utf-8"))
 
 
+def jobs_with_generated_resumes(*, resume_root=None):
+    """Include recorded renders and documents created before render tracking existed."""
+    resume_root = Path(resume_root or PROJECT_DIR / "generated_resumes")
+    documents = [path.name for path in resume_root.glob("resume-*.docx") if path.is_file()]
+    job_ids = set()
+    if not TASK_ROOT.is_dir():
+        return job_ids
+    for task_dir in TASK_ROOT.iterdir():
+        if not task_dir.is_dir():
+            continue
+        try:
+            status = read_status(task_dir)
+        except (OSError, ValueError):
+            continue
+        if status.get("job_id") and (
+            status.get("resume_generated_at")
+            or any(f"{task_dir.name}-" in name for name in documents)
+        ):
+            job_ids.add(status["job_id"])
+    return job_ids
+
+
 def recent_for_job(job_id, *, root=None, limit=5):
     root = Path(root or TASK_ROOT)
     if not root.is_dir():

@@ -1,12 +1,17 @@
 """Exercise the saved-job browser with a temporary history and source files."""
 
 import re
+import io
+import json
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
+import yaml
+from docx import Document
+import render_resume
 import job_web
 from job_tools import job_history
 from job_tools import resume_web_tasks as tasks
@@ -46,6 +51,50 @@ class JobWebTests(unittest.TestCase):
                     (key, title, company, "remote", "New York, NY", "$90,000–$110,000"),
                 )
         return key
+
+    def test_hide_job_preserves_history_and_artifacts(self):
+        key = self.save_idealist("a" * 32, "Data Engineer", company="Hidden Company")
+        other = self.save_idealist("b" * 32, "Research Analyst")
+        listing = self.client.get("/")
+        self.assertIn(b"data-hide-job", listing.data)
+        token = job_web.confirmation_signer.dumps({"hide_job": key})
+        route = f"/jobs/{key}/hide"
+        self.assertEqual(self.client.get(route).status_code, 404)
+        self.assertEqual(self.client.post(route).status_code, 400)
+        wrong = job_web.confirmation_signer.dumps({"hide_job": other})
+        self.assertEqual(self.client.post(route, data={"token": wrong}).status_code, 400)
+        response = self.client.post(route, data={"token": token, "q": "Data", "page": "2"})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("q=Data", response.location)
+        self.assertIn("page=2", response.location)
+        listing = self.client.get("/")
+        self.assertNotIn(b"Data Engineer", listing.data)
+        self.assertNotIn(b"Hidden Company", listing.data)
+        self.assertIn(b"1 posting collected", listing.data)
+        self.assertIn(b"Research Analyst", listing.data)
+        url, detail_file = job_history.saved_job(key)
+        self.assertTrue(Path(detail_file).is_file())
+        self.assertTrue(job_history.is_processed(url))
+        self.assertEqual(job_history.filter_unprocessed([{"link": url}]), [])
+        self.assertEqual(self.client.get(f"/jobs/{key}").status_code, 200)
+        self.assertEqual(self.client.post(route, data={"token": token}).status_code, 302)
+        with job_history._database() as connection:
+            self.assertIsNotNone(connection.execute(
+                "SELECT hidden_at FROM processed_jobs WHERE job_key = ?", (key,)
+            ).fetchone()[0])
+
+    def test_existing_database_gets_visibility_column(self):
+        import sqlite3
+        with sqlite3.connect(job_history.HISTORY_DB_PATH) as connection:
+            connection.execute("""CREATE TABLE processed_jobs (
+                job_key TEXT PRIMARY KEY, url TEXT NOT NULL, detail_file TEXT NOT NULL,
+                processed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)""")
+            connection.execute("INSERT INTO processed_jobs (job_key, url, detail_file) VALUES (?, ?, ?)",
+                               ("old", "https://example.com/job", "old.txt"))
+        with job_history._database() as connection:
+            self.assertEqual(connection.execute(
+                "SELECT job_key, hidden_at FROM processed_jobs"
+            ).fetchone(), ("old", None))
 
     def test_empty_database_has_helpful_message(self):
         response = self.client.get("/")
@@ -136,6 +185,7 @@ class JobWebTests(unittest.TestCase):
         self.assertEqual(status["job_id"], key)
         self.assertEqual(status["model"], "qwen2.5:7b")
         self.assertEqual(status["state"], "queued")
+        self.assertEqual(status["rewrite_mode"], "none")
         self.assertIn(b"Selection queued", self.client.get(started.location).data)
         self.assertIn(b"Recent selection attempts", self.client.get(f"/jobs/{key}").data)
         status.update(
@@ -146,6 +196,77 @@ class JobWebTests(unittest.TestCase):
         failed_page = self.client.get(started.location)
         self.assertIn(b"Custom resume could not be made", failed_page.data)
         self.assertIn(b"summary has too few words", failed_page.data)
+
+    def test_bullet_modes(self):
+        key = self.save_idealist("f" * 32, "Engineer")
+        self.assertIn(b'<option value="none" selected>', self.client.get(f"/jobs/{key}").data)
+        for mode in ("none", "light", "targeted"):
+            confirm = self.client.post(f"/jobs/{key}/resume/confirm", data={
+                "model": "qwen2.5:7b", "rewrite_mode": mode,
+            })
+            self.assertEqual(confirm.status_code, 200)
+            token = re.search(rb'name="token" value="([^"]+)"', confirm.data).group(1).decode()
+            with patch.object(job_web.subprocess, "Popen"):
+                started = self.client.post("/resume/start", data={"token": token})
+            task_id = started.location.rsplit("/", 1)[-1]
+            self.assertEqual(tasks.read_status(tasks.TASK_ROOT / task_id)["rewrite_mode"], mode)
+        self.assertEqual(self.client.post(f"/jobs/{key}/resume/confirm", data={
+            "model": "qwen2.5:7b", "rewrite_mode": "invalid",
+        }).status_code, 400)
+
+    def test_render_download_and_validation_gate(self):
+        from test_resume_selection import INVENTORY, SELECTION
+
+        key = self.save_idealist("e" * 32, "Engineer")
+        task_id = str(uuid4())
+        task_dir = tasks.TASK_ROOT / task_id
+        task_dir.mkdir(parents=True)
+        (task_dir / "inventory.yaml").write_text(yaml.safe_dump(INVENTORY), encoding="utf-8")
+        selection = task_dir / "selection.json"
+        selection.write_text(json.dumps(SELECTION), encoding="utf-8")
+        status = dict(task_id=task_id, job_id=key, model="qwen2.5:7b",
+                      detail_url=f"/jobs/{key}", state="ready_for_review",
+                      created_at=tasks.now_utc(), run_dir=str(task_dir),
+                      selection_file=str(selection))
+        tasks.write_status(task_dir, status)
+        listing = self.client.get("/")
+        self.assertIn(b"Resume Generated", listing.data)
+        self.assertNotIn(b'aria-label="Resume generated"', listing.data)
+        self.assertIn(b"Generate resume", self.client.get(f"/jobs/{key}").data)
+        self.assertIn(b"Generate resume", self.client.get(f"/resume/{task_id}").data)
+        token = job_web.confirmation_signer.dumps({"render_job": key})
+        route = f"/resume/{task_id}/render"
+        self.assertEqual(self.client.post(route).status_code, 400)
+        with patch.object(render_resume, "__file__", str(self.root / "render_resume.py")):
+            response = self.client.post(route, data={"token": token})
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("attachment;", response.headers["Content-Disposition"])
+            filename = re.search(r'filename=([^;]+)', response.headers["Content-Disposition"]).group(1).strip('"')
+            self.assertRegex(filename, rf"^resume-\d{{8}}T\d{{12}}Z-{task_id}-[0-9a-f]{{32}}\.docx$")
+            self.assertTrue((self.root / "generated_resumes" / filename).is_file())
+            saved_status = tasks.read_status(task_dir)
+            self.assertTrue(saved_status["resume_generated_at"])
+            self.assertEqual(saved_status["resume_file"], str(self.root / "generated_resumes" / filename))
+            self.assertIn(b'aria-label="Resume generated"', self.client.get("/").data)
+            # Older renders have no status marker, but their filenames identify the request.
+            with patch.object(tasks, "PROJECT_DIR", self.root):
+                tasks.write_status(task_dir, status)
+                self.assertIn(b'aria-label="Resume generated"', self.client.get("/").data)
+                old_filename = self.root / "generated_resumes" / f"resume-{task_id}-{'a' * 32}.docx"
+                (self.root / "generated_resumes" / filename).rename(old_filename)
+                self.assertIn(b'aria-label="Resume generated"', self.client.get("/").data)
+            document = Document(io.BytesIO(response.data))
+            self.assertIn("Example Person", [p.text for p in document.paragraphs])
+            response.close()
+            selection.write_text("{}", encoding="utf-8")
+            self.assertEqual(self.client.post(route, data={"token": token}).status_code, 422)
+            selection.unlink()
+            self.assertEqual(self.client.post(route, data={"token": token}).status_code, 422)
+        status["state"] = "failed"
+        tasks.write_status(task_dir, status)
+        self.assertNotIn(b"Generate resume", self.client.get(f"/jobs/{key}").data)
+        self.assertEqual(self.client.post(route, data={"token": token}).status_code, 409)
+        self.assertEqual(self.client.post("/resume/invalid/render").status_code, 404)
 
     def test_installed_model_list_excludes_embedding_only_models(self):
         tags = Mock()

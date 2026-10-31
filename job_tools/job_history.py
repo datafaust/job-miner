@@ -116,9 +116,13 @@ def _database():
                     job_key TEXT PRIMARY KEY,
                     url TEXT NOT NULL,
                     detail_file TEXT NOT NULL,
-                    processed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    processed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    hidden_at TEXT
                 )"""
             )
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(processed_jobs)")}
+            if "hidden_at" not in columns:
+                connection.execute("ALTER TABLE processed_jobs ADD COLUMN hidden_at TEXT")
             connection.execute(
                 """CREATE TABLE IF NOT EXISTS job_summaries (
                     job_key TEXT PRIMARY KEY REFERENCES processed_jobs(job_key),

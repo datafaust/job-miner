@@ -5,7 +5,7 @@ import json
 import yaml
 from crewai import Agent, Crew, LLM, Task
 
-OLLAMA_CONTEXT_TOKENS = 8192
+OLLAMA_CONTEXT_TOKENS = 16384
 OLLAMA_NUM_PREDICT = -1  # Ollama: generate until the model stops.
 OLLAMA_TIMEOUT_SECONDS = 1200
 

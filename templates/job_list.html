@@ -49,7 +49,9 @@
       <thead><tr>
         <th scope="col">Job</th><th scope="col">Company</th><th scope="col">Source</th>
         <th scope="col">Location</th><th scope="col">Work arrangement</th>
-        <th scope="col">Salary</th><th scope="col">Saved (UTC)</th>
+        <th scope="col">Salary</th><th scope="col">Posted</th><th scope="col">Saved (UTC)</th>
+        <th scope="col">Resume Generated</th>
+        <th scope="col"><span class="visually-hidden">Actions</span></th>
       </tr></thead>
       <tbody>
       {% for job in jobs %}
@@ -60,7 +62,21 @@
         <td>{{ job.location or '—' }}</td>
         <td>{{ job.remote_status | replace('_', ' ') | title }}</td>
         <td>{{ job.salary_range or '—' }}</td>
-        <td class="text-nowrap">{{ job.processed_at }}</td>
+        <td class="text-nowrap">{{ job.posted_at[:10] if job.posted_at else (job.posted_text or '—') }}</td>
+        <td class="text-nowrap">{{ job.processed_at[:10] }}</td>
+        <td class="text-center">{% if job.job_key in resume_job_ids %}<span class="text-success fs-3 fw-bold" role="img" aria-label="Resume generated">✓</span>{% endif %}</td>
+        <td>
+          <form method="post" action="{{ url_for('job_hide', job_id=job.job_key) }}" data-hide-job>
+            <input type="hidden" name="token" value="{{ hide_tokens[job.job_key] }}">
+            <input type="hidden" name="q" value="{{ q }}">
+            <input type="hidden" name="source" value="{{ source }}">
+            <input type="hidden" name="remote" value="{{ remote }}">
+            <input type="hidden" name="page" value="{{ page }}">
+            <button type="submit" class="btn btn-outline-danger btn-sm" title="Hide job" aria-label="Hide job: {{ job.title }}">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6"/></svg>
+            </button>
+          </form>
+        </td>
       </tr>
       {% endfor %}
       </tbody>

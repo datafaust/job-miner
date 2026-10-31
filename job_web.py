@@ -1,6 +1,7 @@
 """Local browser for saved jobs and reviewed resume-selection requests."""
 
 import argparse
+import json
 import math
 import os
 import secrets
@@ -13,12 +14,14 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import requests
-from flask import Flask, abort, redirect, render_template, request, url_for
+import yaml
+from flask import Flask, abort, redirect, render_template, request, send_file, url_for
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from job_tools import job_history
 from job_tools import resume_web_tasks as tasks
 from job_tools.resume_inputs import load_saved_posting
+from render_resume import produce
 
 
 PAGE_SIZE = 25
@@ -84,7 +87,7 @@ def _saved_jobs():
     with job_history._database() as connection:
         connection.row_factory = sqlite3.Row
         rows = connection.execute(
-            """SELECT h.job_key, h.url, h.processed_at,
+            """SELECT h.job_key, h.url, h.processed_at, h.hidden_at,
                       p.job_title, p.company, p.location, p.remote_status,
                       p.salary_range, p.posted_at, p.posted_text,
                       s.title AS summary_title, s.status AS summary_status,
@@ -123,7 +126,7 @@ def _list_state():
 
 @app.get("/")
 def job_list():
-    all_jobs = _saved_jobs()
+    all_jobs = [job for job in _saved_jobs() if job["hidden_at"] is None]
     query, source, remote, page = _list_state()
     sources = sorted({job["source"] for job in all_jobs})
     if source not in sources:
@@ -141,12 +144,37 @@ def job_list():
     page_count = max(1, math.ceil(len(filtered) / PAGE_SIZE))
     page = min(page, page_count)
     start = (page - 1) * PAGE_SIZE
+    visible_jobs = filtered[start:start + PAGE_SIZE]
     return render_template(
-        "job_list.html", jobs=filtered[start:start + PAGE_SIZE],
+        "job_list.html", jobs=visible_jobs,
+        hide_tokens={job["job_key"]: confirmation_signer.dumps({"hide_job": job["job_key"]})
+                     for job in visible_jobs},
         total=len(filtered), saved_total=len(all_jobs), sources=sources,
         q=query, source=source, remote=remote, page=page,
         page_count=page_count,
+        resume_job_ids=tasks.jobs_with_generated_resumes(),
     )
+
+
+@app.post("/jobs/<path:job_id>/hide")
+def job_hide(job_id):
+    try:
+        data = confirmation_signer.loads(request.form.get("token", ""), max_age=3600)
+        if data.get("hide_job") != job_id:
+            abort(400)
+    except (BadSignature, SignatureExpired):
+        abort(400, "Reload the job list and try again.")
+    with job_history._database() as connection:
+        result = connection.execute(
+            "UPDATE processed_jobs SET hidden_at = COALESCE(hidden_at, CURRENT_TIMESTAMP) WHERE job_key = ?",
+            (job_id,),
+        )
+        if result.rowcount == 0:
+            abort(404)
+    return redirect(url_for(
+        "job_list", q=request.form.get("q", ""), source=request.form.get("source", ""),
+        remote=request.form.get("remote", ""), page=request.form.get("page", "1"),
+    ))
 
 
 @app.get("/jobs/<path:job_id>")
@@ -169,6 +197,7 @@ def job_detail(job_id):
         posting_error=posting_error, back_url=back_url,
         models=models, model_error=model_error,
         recent_attempts=tasks.recent_for_job(job_id),
+        render_token=confirmation_signer.dumps({"render_job": job_id}),
         q=query, source=source, remote=remote, page=page,
     )
 
@@ -179,6 +208,9 @@ def resume_confirm(job_id):
     if job is None:
         abort(404)
     model = request.form.get("model", "")
+    rewrite_mode = request.form.get("rewrite_mode", "none")
+    if rewrite_mode not in {"none", "light", "targeted"}:
+        abort(400, "Choose a valid bullet mode.")
     models, model_error = _available_models()
     detail_url = _detail_url(job_id, request.form)
     if model_error or model not in models:
@@ -196,10 +228,12 @@ def resume_confirm(job_id):
     task_id = str(uuid4())
     token = confirmation_signer.dumps({
         "task_id": task_id, "job_id": job_id, "model": model,
+        "rewrite_mode": rewrite_mode,
         "detail_url": detail_url,
     })
     return render_template(
         "resume_confirm.html", job=job, model=model,
+        rewrite_mode=rewrite_mode,
         token=token, detail_url=detail_url,
     )
 
@@ -210,6 +244,9 @@ def resume_start():
         data = confirmation_signer.loads(request.form.get("token", ""), max_age=900)
         task_id = str(UUID(data["task_id"]))
         job_id, model = data["job_id"], data["model"]
+        rewrite_mode = data.get("rewrite_mode", "none")
+        if rewrite_mode not in {"none", "light", "targeted"}:
+            abort(400)
     except (BadSignature, SignatureExpired, KeyError, ValueError, TypeError):
         abort(400, "Confirmation expired. Choose a model again from the job page.")
     if _job(job_id) is None:
@@ -228,6 +265,7 @@ def resume_start():
         return redirect(url_for("resume_status", task_id=task_id))
     status = {
         "task_id": task_id, "job_id": job_id, "model": model,
+        "rewrite_mode": rewrite_mode,
         "detail_url": data["detail_url"], "state": "queued",
         "created_at": tasks.now_utc(),
     }
@@ -259,10 +297,51 @@ def resume_status(task_id):
     cancel_token = confirmation_signer.dumps({"cancel": task_id})
     return render_template(
         "resume_status.html", task=status, cancel_token=cancel_token,
+        render_token=confirmation_signer.dumps({"render_job": status["job_id"]}),
         elapsed=_elapsed_text(status.get("started_at") or status.get("created_at"),
                               status.get("finished_at")),
         stage_elapsed=_elapsed_text(status.get("stage_started_at"),
                                     status.get("finished_at")),
+    )
+
+
+@app.post("/resume/<task_id>/render")
+def resume_render(task_id):
+    try:
+        task_id = str(UUID(task_id))
+        status = tasks.read_status(tasks.TASK_ROOT / task_id)
+    except (ValueError, OSError, KeyError):
+        abort(404)
+    try:
+        data = confirmation_signer.loads(request.form.get("token", ""), max_age=3600)
+        if data.get("render_job") != status["job_id"]:
+            abort(400)
+    except (BadSignature, SignatureExpired):
+        abort(400, "Reload the posting or selection page and try again.")
+    if status.get("state") != "ready_for_review":
+        abort(409, "A selection must pass validation before rendering a resume.")
+    try:
+        inventory = yaml.safe_load(
+            (Path(status["run_dir"]) / "inventory.yaml").read_text(encoding="utf-8")
+        )
+        selection = json.loads(Path(status["selection_file"]).read_text(encoding="utf-8"))
+        generated_at = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        filename = f"resume-{generated_at}-{task_id}-{uuid4().hex}.docx"
+        output = produce(
+            inventory, selection, PROJECT_DIR / "templates" / "resume-template.docx",
+            filename,
+        )
+        status.update(resume_generated_at=generated_at, resume_file=str(output))
+        tasks.write_status(tasks.TASK_ROOT / task_id, status)
+    except Exception as error:
+        app.logger.exception("Resume rendering failed for %s", task_id)
+        return render_template(
+            "resume_error.html", detail_url=status["detail_url"],
+            message=f"The resume could not be generated: {error}",
+        ), 422
+    return send_file(
+        output, as_attachment=True, download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
 
 

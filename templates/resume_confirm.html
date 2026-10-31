@@ -8,6 +8,7 @@
       <h1 class="h3 mb-3">Confirm selection run</h1>
       <p>This will use <strong>{{ model }}</strong> to select resume content for <strong>{{ job.title }}</strong>{% if job.company %} at {{ job.company }}{% endif %}.</p>
       <p class="text-secondary">The model may take several minutes. The result must pass structural validation and then be reviewed by you. This step does not render a DOCX.</p>
+      <p>Bullet mode: <strong>{{ {'none': 'No changes', 'light': 'Light edits', 'targeted': 'Targeted edits'}[rewrite_mode] }}</strong></p>
       <form method="post" action="{{ url_for('resume_start') }}">
         <input type="hidden" name="token" value="{{ token }}">
         <div class="d-flex gap-2">
