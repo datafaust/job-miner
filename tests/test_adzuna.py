@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 import unittest
+import requests
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -41,6 +42,31 @@ class AdzunaTests(unittest.TestCase):
             fetch_adzuna_jobs("data analyst", "remote", app_id="id", app_key="key")
             self.assertEqual(get.call_args.kwargs["params"]["what_or"], "remote hybrid")
             self.assertNotIn("where", get.call_args.kwargs["params"])
+
+    def test_fetches_second_page_after_full_first_page_and_deduplicates_candidates(self):
+        first_page = [listing(str(job_id)) for job_id in range(1, 51)]
+        second_page = [listing("50"), listing("51")]
+        first_response, second_response = Mock(), Mock()
+        first_response.json.return_value = {"results": first_page}
+        second_response.json.return_value = {"results": second_page}
+        with patch("job_tools.adzuna.requests.get", side_effect=[first_response, second_response]) as get:
+            jobs = fetch_adzuna_jobs("data analyst", "nyc", app_id="id", app_key="key")
+        self.assertEqual(jobs, first_page + second_page)
+        self.assertEqual([call.args[0].rsplit("/", 1)[-1] for call in get.call_args_list], ["1", "2"])
+        self.assertEqual(get.call_args_list[0].kwargs["params"], get.call_args_list[1].kwargs["params"])
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(job_history, "HISTORY_DB_PATH", Path(directory) / "history.sqlite3"):
+            candidates = adzuna_candidates(jobs, "data analyst", "nyc")
+        self.assertEqual(len(candidates), 51)
+        self.assertEqual(len({job_history.job_key(item["link"]) for item in candidates}), 51)
+
+    def test_second_page_failure_keeps_first_page(self):
+        first_page = [listing(str(job_id)) for job_id in range(1, 51)]
+        response = Mock()
+        response.json.return_value = {"results": first_page}
+        with patch("job_tools.adzuna.requests.get", side_effect=[response, requests.Timeout("page 2")]) as get:
+            self.assertEqual(fetch_adzuna_jobs("data analyst", "nyc", app_id="id", app_key="key"), first_page)
+        self.assertEqual(get.call_count, 2)
 
     def test_missing_credentials_and_invalid_response(self):
         with patch.dict(os.environ, {"ADZUNA_APP_ID": "", "ADZUNA_APP_KEY": ""}), \

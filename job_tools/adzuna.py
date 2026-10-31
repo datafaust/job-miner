@@ -22,7 +22,7 @@ STOP_WORDS = {"a", "an", "and", "at", "for", "in", "job", "jobs", "of", "or",
 
 
 def fetch_adzuna_jobs(query, location, *, app_id=None, app_key=None, timeout=30):
-    """Request one page (up to 50 jobs) to keep routine runs quota-conscious."""
+    """Fetch up to two pages of recent jobs, stopping after a short page."""
     app_id = app_id or os.getenv("ADZUNA_APP_ID")
     app_key = app_key or os.getenv("ADZUNA_APP_KEY")
     if not app_id or not app_key:
@@ -41,17 +41,30 @@ def fetch_adzuna_jobs(query, location, *, app_id=None, app_key=None, timeout=30)
         params["where"] = "New York, NY"
     else:
         params["what_or"] = "remote hybrid"
-    response = requests.get(
-        "https://api.adzuna.com/v1/api/jobs/us/search/1",
-        params=params,
-        headers={"Accept": "application/json", "User-Agent": USER_AGENT},
-        timeout=timeout,
-    )
-    response.raise_for_status()
-    data = response.json()
-    jobs = data.get("results") if isinstance(data, dict) else None
-    if not isinstance(jobs, list):
-        raise ValueError("Adzuna returned a non-list job feed")
+    jobs = []
+    for page in (1, 2):
+        try:
+            response = requests.get(
+                f"https://api.adzuna.com/v1/api/jobs/us/search/{page}",
+                params=params,
+                headers={"Accept": "application/json", "User-Agent": USER_AGENT},
+                timeout=timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            page_jobs = data.get("results") if isinstance(data, dict) else None
+            if not isinstance(page_jobs, list):
+                raise ValueError("Adzuna returned a non-list job feed")
+        except (requests.RequestException, ValueError) as error:
+            if page == 1:
+                raise
+            status = getattr(getattr(error, "response", None), "status_code", None)
+            detail = f"HTTP {status}" if status else type(error).__name__
+            print(f"Adzuna page 2 failed ({detail}); keeping page 1 results.")
+            break
+        jobs.extend(page_jobs)
+        if len(page_jobs) < params["results_per_page"]:
+            break
     print(f"Adzuna search succeeded: found {len(jobs)} jobs.")
     return jobs
 
