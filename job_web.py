@@ -4,6 +4,7 @@ import argparse
 import json
 import math
 import os
+import re
 import secrets
 import signal
 import sqlite3
@@ -65,6 +66,7 @@ def _detail_url(job_id, values):
         "job_detail", job_id=job_id,
         q=values.get("q", ""), source=values.get("source", ""),
         remote=values.get("remote", ""), page=values.get("page", "1"),
+        sort=values.get("sort", ""), order=values.get("order", ""),
     )
 
 
@@ -90,10 +92,14 @@ def _saved_jobs():
             """SELECT h.job_key, h.url, h.processed_at, h.hidden_at,
                       p.job_title, p.company, p.location, p.remote_status,
                       p.salary_range, p.posted_at, p.posted_text,
+                      f.score AS fit_score, f.tier AS fit_tier,
+                      f.assessment_json AS fit_assessment_json,
+                      f.model AS fit_model, f.graded_at AS fit_graded_at,
                       s.title AS summary_title, s.status AS summary_status,
                       s.result_text AS summary_text, s.saved_at AS summary_saved_at
                FROM processed_jobs AS h
                LEFT JOIN prospective_jobs AS p USING (job_key)
+               LEFT JOIN job_fit_grades AS f USING (job_key)
                LEFT JOIN job_summaries AS s USING (job_key)
                ORDER BY h.processed_at DESC, h.job_key"""
         ).fetchall()
@@ -101,6 +107,7 @@ def _saved_jobs():
     jobs = []
     for row in rows:
         job = dict(row)
+        job["fit_assessment"] = json.loads(job["fit_assessment_json"]) if job["fit_assessment_json"] else None
         job["source"] = job_history.job_source(job["job_key"], job["url"])
         job["title"] = job["job_title"] or job["summary_title"]
         if not job["title"]:
@@ -121,13 +128,53 @@ def _list_state():
         page = max(1, int(request.args.get("page", "1")))
     except ValueError:
         page = 1
-    return query, source, remote, page
+    sort = request.args.get("sort", "fit")
+    if sort not in {"title", "company", "source", "location", "remote", "salary", "posted", "saved", "fit", "resume"}:
+        sort = "fit"
+    order = request.args.get("order", "desc" if sort in {"posted", "saved", "fit"} else "asc")
+    if order not in {"asc", "desc"}:
+        order = "desc" if sort in {"posted", "saved", "fit"} else "asc"
+    return query, source, remote, page, sort, order
+
+
+def _timestamp(value):
+    """Convert source timestamps to comparable UTC values; unknown dates sort last."""
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.timestamp()
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _sort_jobs(jobs, sort, order, resume_job_ids):
+    if sort == "resume":
+        key = lambda job: job["job_key"] in resume_job_ids
+    elif sort == "fit":
+        key = lambda job: job["fit_score"]
+    elif sort in {"posted", "saved"}:
+        field = "posted_at" if sort == "posted" else "processed_at"
+        key = lambda job: _timestamp(job[field])
+    elif sort == "salary":
+        def key(job):
+            match = re.search(r"\$?\s*(\d[\d,]*(?:\.\d+)?)\s*([kK]?)", job["salary_range"] or "")
+            return float(match[1].replace(",", "")) * (1000 if match[2] else 1) if match else None
+    else:
+        field = "remote_status" if sort == "remote" else sort
+        key = lambda job: (job[field] or "").casefold() or None
+    known = [(job, value) for job in jobs if (value := key(job)) is not None]
+    missing = [job for job in jobs if key(job) is None]
+    known.sort(key=lambda pair: pair[1], reverse=order == "desc")
+    return [job for job, _ in known] + missing
 
 
 @app.get("/")
 def job_list():
     all_jobs = [job for job in _saved_jobs() if job["hidden_at"] is None]
-    query, source, remote, page = _list_state()
+    query, source, remote, page, sort, order = _list_state()
     sources = sorted({job["source"] for job in all_jobs})
     if source not in sources:
         source = ""
@@ -141,6 +188,8 @@ def job_list():
         and (not source or job["source"] == source)
         and (not remote or job["remote_status"] == remote)
     ]
+    resume_job_ids = tasks.jobs_with_generated_resumes()
+    filtered = _sort_jobs(filtered, sort, order, resume_job_ids)
     page_count = max(1, math.ceil(len(filtered) / PAGE_SIZE))
     page = min(page, page_count)
     start = (page - 1) * PAGE_SIZE
@@ -150,9 +199,9 @@ def job_list():
         hide_tokens={job["job_key"]: confirmation_signer.dumps({"hide_job": job["job_key"]})
                      for job in visible_jobs},
         total=len(filtered), saved_total=len(all_jobs), sources=sources,
-        q=query, source=source, remote=remote, page=page,
+        q=query, source=source, remote=remote, page=page, sort=sort, order=order,
         page_count=page_count,
-        resume_job_ids=tasks.jobs_with_generated_resumes(),
+        resume_job_ids=resume_job_ids,
     )
 
 
@@ -174,6 +223,7 @@ def job_hide(job_id):
     return redirect(url_for(
         "job_list", q=request.form.get("q", ""), source=request.form.get("source", ""),
         remote=request.form.get("remote", ""), page=request.form.get("page", "1"),
+        sort=request.form.get("sort", ""), order=request.form.get("order", ""),
     ))
 
 
@@ -189,8 +239,8 @@ def job_detail(job_id):
         posting_error = str(error)
     else:
         posting_error = None
-    query, source, remote, page = _list_state()
-    back_url = url_for("job_list", q=query, source=source, remote=remote, page=page)
+    query, source, remote, page, sort, order = _list_state()
+    back_url = url_for("job_list", q=query, source=source, remote=remote, page=page, sort=sort, order=order)
     models, model_error = _available_models()
     return render_template(
         "job_detail.html", job=job, posting=posting,
@@ -198,7 +248,7 @@ def job_detail(job_id):
         models=models, model_error=model_error,
         recent_attempts=tasks.recent_for_job(job_id),
         render_token=confirmation_signer.dumps({"render_job": job_id}),
-        q=query, source=source, remote=remote, page=page,
+        q=query, source=source, remote=remote, page=page, sort=sort, order=order,
     )
 
 

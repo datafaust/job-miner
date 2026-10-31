@@ -128,6 +128,19 @@ python -m job_tools.drive_export
 
 The first upload opens a browser for Google sign-in and saves the OAuth token locally for later runs. If no file ID is configured, or Google returns 404 for the configured ID, it creates a Google Sheet named **Job Miner** and saves its ID to `.env`. The exporter creates the **Prospective jobs** tab if missing. Later exports keep existing rows and add only jobs whose stable job key or URL is not already present. Existing job rows, manual notes, and other tabs remain in place; an empty JSON export does not clear the sheet. For an Excel `.xlsx` file, the exporter downloads and reuploads the workbook only when it has new jobs or needs to create the tab. Your JSON export and Drive upload are separate commands, so rerun both to publish new jobs. Use the same Google account that owns or can edit the target file.
 
+### Manual job fit grading
+
+After scraping jobs, run the fit grader separately with an installed local Ollama model:
+
+```sh
+python fit_grader.py --job 'greenhouse:123456' --model llama3.2
+python fit_grader.py --all --model llama3.2
+```
+
+Use the **Job ID** on a saved job's detail page for `--job`. `--all` processes visible saved jobs and continues past individual failures. It skips a job when its posting, `master_accomplishments.yaml`, prompt version, and model match the stored grade; add `--force` to regrade. The command exits with status 1 if any job fails, making it suitable for a later cron run. Start Ollama and install the model before running it. The grader calls Ollama's local API directly; it does not run `main.py` or render a resume.
+
+Grades are stored in `job_fit_grades` in `job_history.sqlite3`, with a score, strong/possible/weak tier, explanation, cited accomplishment IDs and source wording, model, timestamp, and input hashes. The saved-jobs page sorts by **Fit** by default; ungraded jobs appear last and retain saved-date order. You can still click any other header to sort by it. Open a job to review the requirements, evidence, and gaps behind its grade. Scores are a review aid and should be checked against the original posting, especially when a source provides only a description snippet.
+
 ### Saved AI results
 
 The `job_summaries` table in `job_history.sqlite3` stores one AI result per stable job ID, linked to the saved original posting. It records the title, model, result, timestamp, and whether the model produced a summary, judged one unnecessary, or failed. A later result for the same job ID replaces the earlier one. Pass `--no-summary` to `main.py` to save jobs and prospect facts without running the organizer agent; these jobs have no `job_summaries` row and do not appear under `--saved-summaries`. Idealist's separate agent may still select among multiple search results. `output.json` remains a temporary search snapshot.

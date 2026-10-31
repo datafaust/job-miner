@@ -147,6 +147,19 @@ def _database():
                     extracted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )"""
             )
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS job_fit_grades (
+                    job_key TEXT PRIMARY KEY REFERENCES processed_jobs(job_key),
+                    model TEXT NOT NULL,
+                    score INTEGER NOT NULL CHECK (score BETWEEN 0 AND 100),
+                    tier TEXT NOT NULL CHECK (tier IN ('strong', 'possible', 'weak')),
+                    assessment_json TEXT NOT NULL,
+                    posting_sha256 TEXT NOT NULL,
+                    inventory_sha256 TEXT NOT NULL,
+                    prompt_version TEXT NOT NULL,
+                    graded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )"""
+            )
             yield connection
     finally:
         connection.close()

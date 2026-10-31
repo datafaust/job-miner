@@ -147,6 +147,41 @@ class JobWebTests(unittest.TestCase):
         self.assertIn(b"page=2", detail.data)
         self.assertEqual(self.client.get("/jobs/unknown").status_code, 404)
 
+    def test_sort_headers_order_dates_across_pages_and_keep_context(self):
+        keys = []
+        for number in range(27):
+            key = self.save_idealist(f"{number:032x}", f"Role {number:02d}")
+            keys.append(key)
+            with job_history._database() as connection:
+                connection.execute(
+                    "UPDATE prospective_jobs SET posted_at = ? WHERE job_key = ?",
+                    (f"2026-10-{number + 1:02d}T12:00:00Z", key),
+                )
+        with job_history._database() as connection:
+            connection.execute("UPDATE prospective_jobs SET posted_at = NULL WHERE job_key = ?", (keys[0],))
+
+        newest = self.client.get("/?sort=posted&order=desc")
+        self.assertEqual(newest.status_code, 200)
+        self.assertIn(b'aria-sort="descending"', newest.data)
+        self.assertLess(newest.data.index(b"Role 26"), newest.data.index(b"Role 25"))
+        self.assertNotIn(b"Role 00", newest.data)
+        self.assertIn(b"sort=posted&amp;order=asc", newest.data)
+
+        oldest = self.client.get("/?sort=posted&order=asc&page=2")
+        self.assertIn(b"Role 00", oldest.data)  # Unknown dates remain last.
+        self.assertIn(b"Role 26", oldest.data)
+        self.assertIn(b"sort=posted&amp;order=asc", oldest.data)
+
+        filtered = self.client.get("/?q=Role+02&sort=posted&order=asc")
+        self.assertIn(b"Role 02", filtered.data)
+        self.assertIn(b'name="sort" value="posted"', filtered.data)
+        detail = self.client.get(f"/jobs/{keys[2]}?sort=posted&order=asc")
+        self.assertIn(b"sort=posted", detail.data)
+        self.assertIn(b'name="order" value="asc"', detail.data)
+
+        by_title = self.client.get("/?sort=title&order=desc")
+        self.assertLess(by_title.data.index(b"Role 26"), by_title.data.index(b"Role 25"))
+
     def test_posting_text_is_escaped(self):
         key = self.save_idealist("c" * 32, "Security Engineer")
         path = self.root / f"{'c' * 32}.txt"
