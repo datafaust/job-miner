@@ -18,6 +18,8 @@ import yaml
 from flask import Flask, abort, redirect, render_template, request, send_file, url_for
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
+from job_tools import search_web_tasks as searches
+from job_tools.location import normalize_search_location
 from job_tools import job_history
 from job_tools import resume_web_tasks as tasks
 from job_tools.resume_inputs import load_saved_posting
@@ -154,6 +156,66 @@ def job_list():
         page_count=page_count,
         resume_job_ids=tasks.jobs_with_generated_resumes(),
     )
+
+
+@app.get("/search/new")
+def search_new():
+    return render_template("search_form.html", keywords="", location="",
+                           token=confirmation_signer.dumps({"search_id": str(uuid4())}))
+
+
+@app.post("/search/start")
+def search_start():
+    token = request.form.get("token", "")
+    try:
+        data = confirmation_signer.loads(token, max_age=3600)
+        task_id = str(UUID(data["search_id"]))
+    except (BadSignature, SignatureExpired, KeyError, ValueError, TypeError):
+        abort(400, "Reload the search form and try again.")
+    keywords = request.form.get("keywords", "").strip()
+    location = request.form.get("location", "").strip()
+    error = None
+    if not keywords or len(keywords) > 300:
+        error = "Enter keywords (up to 300 characters)."
+    try:
+        normalized = normalize_search_location(location)
+    except ValueError as exc:
+        error = str(exc)
+    if error:
+        return render_template("search_form.html", keywords=keywords,
+                               location=location, token=token, error=error), 400
+    task_dir = searches.TASK_ROOT / task_id
+    try:
+        task_dir.mkdir(parents=True, exist_ok=False)
+    except FileExistsError:
+        return redirect(url_for("search_status", task_id=task_id))
+    status = dict(task_id=task_id, keywords=keywords, location=normalized,
+                  state="queued", created_at=searches.now_utc())
+    searches.write_status(task_dir, status)
+    try:
+        with (task_dir / "worker.log").open("w", encoding="utf-8") as log:
+            subprocess.Popen(
+                [sys.executable, str(PROJECT_DIR / "search_web_worker.py"), str(task_dir)],
+                cwd=PROJECT_DIR, stdout=log, stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+    except OSError:
+        status.update(state="failed", finished_at=searches.now_utc(),
+                      message="The search worker could not start. Please try a new search.")
+        searches.write_status(task_dir, status)
+    return redirect(url_for("search_status", task_id=task_id))
+
+
+@app.get("/search/<task_id>")
+def search_status(task_id):
+    try:
+        task_id = str(UUID(task_id))
+        status = searches.read_status(searches.TASK_ROOT / task_id)
+    except (ValueError, OSError):
+        abort(404)
+    return render_template("search_status.html", task=status,
+                          elapsed=_elapsed_text(status.get("started_at") or status["created_at"],
+                                                status.get("finished_at")))
 
 
 @app.post("/jobs/<path:job_id>/hide")

@@ -6,6 +6,7 @@
     <h1 class="h2 mb-1">Saved jobs</h1>
     <p class="text-secondary mb-0">{{ saved_total }} posting{% if saved_total != 1 %}s{% endif %} collected</p>
   </div>
+  <a class="btn btn-primary" href="{{ url_for('search_new') }}">New job search</a>
 </div>
 
 <form method="get" action="{{ url_for('job_list') }}" class="card border-0 shadow-sm mb-4">

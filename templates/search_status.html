@@ -1,0 +1,23 @@
+{% extends "job_base.html" %}
+{% block title %}Job search status{% endblock %}
+{% block head %}{% if task.state in ('queued', 'running') %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
+{% block content %}
+<div class="narrow-page">
+  <div class="card border-0 shadow-sm"><div class="card-body p-4">
+    <div role="status" aria-live="polite">
+    {% if task.state in ('queued', 'running') %}
+      <h1 class="h3"><span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Search {{ task.state }}</h1>
+      <p>{% if task.state == 'queued' %}Waiting for the search worker. Earlier browser searches will finish first.{% else %}Searching job boards and saving matching postings.{% endif %}</p>
+      <p class="text-secondary">This page refreshes every five seconds. You can leave and return to this URL to check progress.</p>
+    {% else %}
+      <h1 class="h3 {% if task.state == 'failed' %}text-danger{% else %}text-success{% endif %}">Search {{ task.state }}</h1>
+      <p>{{ task.message }}</p>
+    {% endif %}
+    <p><strong>{{ task.keywords }}</strong> · {{ 'New York City' if task.location == 'nyc' else 'Remote' }}</p>
+    <p class="small text-secondary">Elapsed{% if task.state == 'queued' %} waiting{% endif %}: {{ elapsed }} · AI summaries disabled</p>
+    </div>
+    <a class="btn btn-primary" href="{{ url_for('job_list') }}">View saved jobs</a>
+    {% if task.state not in ('queued', 'running') %}<a class="btn btn-outline-secondary" href="{{ url_for('search_new') }}">New job search</a>{% endif %}
+  </div></div>
+</div>
+{% endblock %}

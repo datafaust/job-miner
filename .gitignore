@@ -27,6 +27,7 @@ crewai_log.txt
 summary_attempts.jsonl
 generated_resume_runs/
 generated_resume_requests/
+generated_search_requests/
 generated_selections/
 generated_resumes/
 prospective_jobs.json

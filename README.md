@@ -8,16 +8,24 @@ Job Miner is an early job search prototype. Its current entry point asks for a j
 
 ## Browse saved jobs
 
-The local job browser lists every saved posting, including jobs without extracted prospect facts or an AI summary. Click a row to read the saved posting, source details, and any AI result. Search by title or company, filter by source or work arrangement, and move through pages of 25 jobs.
+From the repository root, with the virtual environment active:
 
 ```bash
-python -m pip install "Flask>=3.1,<4" "requests>=2.31,<3"
+python -m pip install -r requirements.txt
 python job_web.py
 ```
 
-Open `http://127.0.0.1:5055` in your browser. The full `requirements.txt` also includes these dependencies. The browser reads `job_history.sqlite3` and the saved files referenced by it. A new checkout with no saved jobs shows an empty list. Styling is included locally, so the page does not need an internet connection. The browser binds to your computer only by default; stop it with Ctrl+C. Use `--port` to choose a different port.
+Open `http://127.0.0.1:5055`. Use `--port` to change the port; Ctrl+C stops the frontend. It reads saved postings from `job_history.sqlite3` and their source files; collect jobs with **New job search** or `main.py`. Browsing does not require Ollama. Styling is local, and the server binds to localhost by default.
 
-On a posting page, choose an installed Ollama text-generation model and confirm to start a tailored resume selection. Install the full `requirements.txt` and start Ollama before using this action. The status page refreshes every five seconds, showing the current stage and elapsed time. A model call may take several minutes; a second attempt appears only when the first result needs repair. The page shows validation errors if selection fails. Use **Cancel selection** on that page to stop a long run; stopping the GUI alone leaves the separate worker running. Successful selections and evidence reports are saved under the existing generated directories for review; the GUI does not render a DOCX before that review. The GUI also keeps a link to recent attempts on each posting page.
+- **New job search** beside the heading requires keywords and location (NYC or remote). Confirm with **Start search**. Browser searches always run `main.py --no-summary`; the frontend cannot enable summarization. Idealist may still use Ollama to select a posting. The status page shows a loading indicator and elapsed time, refreshing every five seconds. Use **View saved jobs** to see results. Searches continue in a separate worker if the page or frontend closes, and browser requests queue one at a time. Status and logs are saved under `generated_search_requests/`.
+- Search titles/companies, filter source or work arrangement, and browse 25 jobs per page. Click a row for the saved posting, source details, and AI result.
+- **Posted** shows the source date or saved relative label (e.g. “Published 2 days ago,” which does not update). **Saved (UTC)** shows the collection date. **Resume Generated** shows ✓ after a successful render.
+- The trash icon asks for confirmation before hiding a job. Its database record and artifacts remain, so later searches still skip it. Hidden jobs are excluded from list counts; there is currently no restore control.
+- To create a resume, start Ollama, open a posting, choose an installed text-generation model and **Bullet mode**, then confirm. **No changes** (default) preserves bullets; **Light edits** adjusts phrasing; **Targeted edits** allows more restructuring while preserving facts.
+- The selection status page refreshes every five seconds and shows progress, errors, and **Cancel selection**. Stopping the frontend does not stop its separate selection worker. Recent attempts appear on the posting page.
+- After validation, review the selection/evidence files at the displayed paths; browser editing is not implemented. Click **Generate resume** on the posting or successful selection page to render and download a Word document using `templates/resume-template.docx`. Rendering needs no model call.
+
+Each render saves a new file under `generated_resumes/` with the same download filename: `resume-<UTC timestamp>-<selection task ID>-<unique render ID>.docx`. Existing documents are retained. Selection inputs and reports remain under `generated_resume_runs/` and `generated_selections/`.
 
 ## Resume selection
 

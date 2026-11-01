@@ -12,3 +12,11 @@ document.querySelectorAll("tr[data-href]").forEach((row) => {
     window.location.href = row.dataset.href;
   });
 });
+
+document.querySelectorAll("form[data-start-search]").forEach((form) => {
+  form.addEventListener("submit", () => {
+    const button = form.querySelector('button[type="submit"]');
+    button.disabled = true;
+    button.textContent = "Starting search…";
+  });
+});

@@ -1,0 +1,29 @@
+{% extends "job_base.html" %}
+{% block title %}New job search{% endblock %}
+{% block content %}
+<div class="narrow-page">
+  <a class="d-inline-block mb-3" href="{{ url_for('job_list') }}">← Back to saved jobs</a>
+  <div class="card border-0 shadow-sm"><div class="card-body p-4">
+    <h1 class="h3">New job search</h1>
+    <p class="text-secondary">Collect matching postings from the configured job boards. Both fields are required. Searches can take several minutes. AI summaries are disabled.</p>
+    {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+    <form method="post" action="{{ url_for('search_start') }}" data-start-search>
+      <input type="hidden" name="token" value="{{ token }}">
+      <div class="mb-3">
+        <label class="form-label" for="keywords">Keywords</label>
+        <input class="form-control" id="keywords" name="keywords" value="{{ keywords }}" required maxlength="300" placeholder="e.g. data analyst" autofocus>
+      </div>
+      <div class="mb-4">
+        <label class="form-label" for="location">Location</label>
+        <select class="form-select" id="location" name="location" required>
+          <option value="">Choose a location</option>
+          <option value="nyc" {% if location == 'nyc' %}selected{% endif %}>New York City</option>
+          <option value="remote" {% if location == 'remote' %}selected{% endif %}>Remote</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" type="submit">Start search</button>
+      <a class="btn btn-outline-secondary" href="{{ url_for('job_list') }}">Cancel</a>
+    </form>
+  </div></div>
+</div>
+{% endblock %}

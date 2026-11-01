@@ -354,6 +354,8 @@ class JobCrew:
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description="Find and organize Greenhouse, Lever, Ashby, Adzuna, Remote OK, Remotive, and Idealist job postings.")
+  parser.add_argument("--keywords", help="Job keywords (skip prompt)")
+  parser.add_argument("--location", help="Location: nyc or remote (skip prompt)")
   parser.add_argument("--model", default="openhermes", help="Ollama model to use (default: openhermes)")
   parser.add_argument("--no-summary", action="store_true", help="Save matching jobs without AI summaries")
   parser.add_argument("--saved-summaries", action="store_true", help="Show saved AI results without searching")
@@ -381,8 +383,8 @@ if __name__ == "__main__":
   location_default = os.getenv("JOB_SEARCH_LOCATION", "").strip()
   keyword_hint = f" [{keyword_default}]" if keyword_default else ""
   location_hint = f" [{location_default}]" if location_default else ""
-  entered_keywords = input(f"What kind of job are you looking for?{keyword_hint}\n")
-  entered_location = input(f"Location (nyc or remote)?{location_hint}\n")
+  entered_keywords = args.keywords if args.keywords is not None else input(f"What kind of job are you looking for?{keyword_hint}\n")
+  entered_location = args.location if args.location is not None else input(f"Location (nyc or remote)?{location_hint}\n")
   try:
     job_ask, location = resolve_search_inputs(entered_keywords, entered_location)
   except ValueError as error:
