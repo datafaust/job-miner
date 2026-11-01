@@ -55,6 +55,17 @@ class AshbyTests(unittest.TestCase):
                 self.assertEqual(ashby_candidates([remote_us], "data analyst", "Ramp", "remote"), [])
         self.assertEqual(job_history.job_key(remote_us["jobUrl"]), job_history.job_key(remote_us["applyUrl"]))
 
+    def test_remote_flag_and_ambiguous_labels(self):
+        flagged = posting("a" * 36, "Eastern Time", "")
+        flagged["isRemote"] = True
+        foreign = posting("b" * 36, "Remote", "Remote")
+        foreign["address"] = {"postalAddress": {"addressCountry": "India"}}
+        hybrid = posting("c" * 36, "New York", "Hybrid")
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(job_history, "HISTORY_DB_PATH", Path(directory) / "history.sqlite3"):
+                matches = ashby_candidates([flagged, foreign, hybrid], "data analyst", "Ramp", "remote")
+        self.assertEqual([item["job"] for item in matches], [flagged])
+
     def test_save_prospect_and_resume_input(self):
         job = posting("a" * 36)
         with tempfile.TemporaryDirectory() as directory:

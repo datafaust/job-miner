@@ -12,6 +12,24 @@
 
 <div class="row g-4">
   <div class="col-xl-8">
+    {% if job.fit_assessment %}
+    <section class="card border-0 shadow-sm mb-4">
+      <div class="card-body p-4">
+        <h2 class="h5 mb-2">Job fit: {{ job.fit_tier | title }} ({{ job.fit_score }}/100)</h2>
+        <p>{{ job.fit_assessment.summary }}</p>
+        <p class="small text-secondary">Graded {{ job.fit_graded_at }} UTC with {{ job.fit_model }}. Review the source posting before applying.</p>
+        {% for item in job.fit_assessment.requirements %}
+        <div class="border-top pt-3 mt-3">
+          <div class="fw-semibold">{{ item.requirement }} <span class="badge {{ 'text-bg-success' if item.status == 'match' else 'text-bg-warning' if item.status == 'partial' else 'text-bg-secondary' }}">{{ item.status | title }}</span></div>
+          <p class="mb-2">{{ item.reason }}</p>
+          {% for source_id, source_text in item.evidence.items() %}
+          <p class="small mb-1"><strong>{{ source_id }}:</strong> {{ source_text }}</p>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
     <section class="card border-0 shadow-sm mb-4">
       <div class="card-body p-4">
         <h2 class="h5 mb-3">Saved posting</h2>
@@ -45,6 +63,8 @@
           <input type="hidden" name="source" value="{{ source }}">
           <input type="hidden" name="remote" value="{{ remote }}">
           <input type="hidden" name="page" value="{{ page }}">
+          <input type="hidden" name="sort" value="{{ sort }}">
+          <input type="hidden" name="order" value="{{ order }}">
           <label class="form-label" for="model">Local Ollama model</label>
           <select class="form-select mb-3" id="model" name="model" required {% if not posting or not models %}disabled{% endif %}>
             <option value="" selected disabled>Select a model</option>

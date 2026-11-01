@@ -12,7 +12,7 @@ class LocationTests(unittest.TestCase):
             normalize_search_location("Boston")
 
     def test_nyc_matches_explicit_city_labels(self):
-        for label in ("NYC", "New York City", "New York, NY", "Brooklyn, NY",
+        for label in ("NYC", "New York", "New York City", "New York, NY", "New York, New York", "Brooklyn, NY",
                       "San Francisco, CA • New York, NY • United States"):
             with self.subTest(label=label):
                 self.assertTrue(greenhouse_matches_location({"location": {"name": label}}, "nyc"))
@@ -22,10 +22,11 @@ class LocationTests(unittest.TestCase):
 
     def test_remote_accepts_explicit_us_or_nyc_labels_only(self):
         for label in ("Remote", "US-Remote", "Remote - USA", "Remote in the US",
-                      "Remote, USA", "Remote - New York, NY"):
+                      "Remote, USA", "Remote - New York, NY", "Remote - North America",
+                      "Remote - Eastern Time", "Remote - US or Canada"):
             with self.subTest(label=label):
                 self.assertTrue(greenhouse_matches_location({"location": {"name": label}}, "remote"))
-        for label in ("Remote - Bengaluru, India", "Poland - Remote OR Romania - Remote",
+        for label in ("Remote - Bengaluru, India", "Remote - London", "Poland - Remote OR Romania - Remote",
                       "Dublin or Germany (Berlin or Remote)", "Remote - Canada", "New York, NY", ""):
             with self.subTest(label=label):
                 self.assertFalse(greenhouse_matches_location({"location": {"name": label}}, "remote"))

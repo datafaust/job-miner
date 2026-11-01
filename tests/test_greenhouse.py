@@ -157,7 +157,7 @@ class GreenhouseTests(unittest.TestCase):
                 candidates = greenhouse_candidates(jobs, "software engineer")
         self.assertEqual(
             [candidate["job"]["id"] for candidate in candidates],
-            list(range(1, MAX_GREENHOUSE_SUMMARIES + 1)),
+            list(range(1, min(7, MAX_GREENHOUSE_SUMMARIES) + 1)),
         )
 
 

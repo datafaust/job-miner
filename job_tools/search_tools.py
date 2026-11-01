@@ -8,22 +8,25 @@ from urllib.parse import urlencode
 from crewai.tools import tool
 from job_tools.job_history import filter_unprocessed
 from job_tools.location import normalize_search_location
-from job_tools.relevance import title_may_match
 from job_tools.workflow_config import LIMITS
 from selenium.webdriver.support.ui import WebDriverWait
 
-def idealist_search_url(query, location):
+def idealist_search_url(query, location, sort="relevance"):
     """Add the requested location to Idealist's keyword search."""
     query = query.strip()
     if not query:
         raise ValueError("Idealist search keywords are required")
     if not location.strip():
         raise ValueError("Idealist search location is required")
+    if sort not in ("relevance", "newest"):
+        raise ValueError("Idealist sort must be relevance or newest")
     location = normalize_search_location(location)
     if location == "remote":
         params = {"q": query, "locationType": "REMOTE"}
     else:
         params = {"q": f"{query} New York City"}
+    if sort == "newest":
+        params["sort"] = "newest"
     return f"https://www.idealist.org/en/jobs?{urlencode(params)}"
 
 
@@ -48,7 +51,7 @@ def prune_search_snapshot(path=Path("output.json")):
 class SearchTools():
 
   @tool("Search the idealist website")
-  def search_idealist(query, location):
+  def search_idealist(query, location, sort="relevance"):
     """Search Idealist and return a configured number of unprocessed jobs."""
     print("SEARCHING IDEALIST WITH THE QUERY...")
     options = Options()
@@ -58,7 +61,7 @@ class SearchTools():
     driver = webdriver.Chrome(options=options)
 
     try:
-        url = idealist_search_url(query, location)
+        url = idealist_search_url(query, location, sort)
         driver.get(url)
 
         # Idealist loads results asynchronously; an empty page has its own marker.
@@ -86,8 +89,7 @@ class SearchTools():
                 "link": link
             })
 
-        unprocessed_results = [job for job in filter_unprocessed(results)
-                               if title_may_match(query, job["text"].splitlines()[0])]
+        unprocessed_results = filter_unprocessed(results)
         shortlist = idealist_shortlist(unprocessed_results)
         print(
             f"Search recovered {len(results)} listings; "
