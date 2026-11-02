@@ -142,7 +142,8 @@ def request_grade(prompt, model, evidence):
     response = requests.post(
         OLLAMA_URL,
         json={"model": model, "prompt": prompt, "format": grade_schema(evidence), "stream": False,
-              "options": {"temperature": 0, "num_ctx": 16384, "num_predict": 2048}},
+              "think": True,
+              "options": {"temperature": 0, "num_ctx": 16384, "num_predict": 8192}},
         timeout=1200,
     )
     response.raise_for_status()
