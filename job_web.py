@@ -22,6 +22,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from job_tools import search_web_tasks as searches
 from job_tools.location import normalize_search_location
 from job_tools import job_history
+from job_tools import manual_jobs
 from job_tools import resume_web_tasks as tasks
 from job_tools.resume_inputs import load_saved_posting
 from render_resume import produce
@@ -174,8 +175,9 @@ def _sort_jobs(jobs, sort, order, resume_job_ids):
 
 
 @app.get("/")
-def job_list():
+def job_list(add_error=None, add_url="", add_posting_text=""):
     all_jobs = [job for job in _saved_jobs() if job["hidden_at"] is None]
+    added_job = next((job for job in all_jobs if job["job_key"] == request.args.get("added")), None)
     query, source, remote, page, sort, order = _list_state()
     sources = sorted({job["source"] for job in all_jobs})
     if source not in sources:
@@ -204,6 +206,9 @@ def job_list():
         q=query, source=source, remote=remote, page=page, sort=sort, order=order,
         page_count=page_count,
         resume_job_ids=resume_job_ids,
+        added_job=added_job,
+        add_token=confirmation_signer.dumps({"add_job": True}),
+        add_error=add_error, add_url=add_url, add_posting_text=add_posting_text,
     )
 
 
@@ -265,6 +270,22 @@ def search_status(task_id):
     return render_template("search_status.html", task=status,
                           elapsed=_elapsed_text(status.get("started_at") or status["created_at"],
                                                 status.get("finished_at")))
+
+
+@app.post("/jobs/add")
+def job_add():
+    try:
+        data = confirmation_signer.loads(request.form.get("token", ""), max_age=3600)
+        if data.get("add_job") is not True:
+            abort(400)
+    except (BadSignature, SignatureExpired):
+        abort(400, "Reload the job list and try again.")
+    try:
+        key = manual_jobs.save_posting(request.form.get("posting_text", ""), request.form.get("url", ""))
+    except ValueError as error:
+        return job_list(add_error=str(error), add_url=request.form.get("url", ""),
+                        add_posting_text=request.form.get("posting_text", "")), 400
+    return redirect(url_for("job_list", sort="saved", order="desc", added=key))
 
 
 @app.post("/jobs/<path:job_id>/hide")

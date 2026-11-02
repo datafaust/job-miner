@@ -115,6 +115,8 @@ python -m job_tools.prospects export
 
 The second command writes `prospective_jobs.json` in the current directory. It does not contact Google or run an AI agent. The extractor uses explicit source fields and labels; an AI extraction step can be added later for ambiguous postings, with its proposed values checked against the source before saving.
 
+To add a job by hand, open the local saved-jobs browser (`python job_web.py`) and click **Add job**. In the popup, enter the original listing URL and paste the posting. Lines such as `Job title:`, `Company:`, `Location:`, `Salary:`, and `Date posted:` help the parser identify facts. The full paste is saved for the detail page and resume tailoring. Unclear or missing facts remain empty; work arrangement is `unknown` unless the posting explicitly identifies it. A duplicate listing URL will not create another row.
+
 #### Add jobs to a worksheet in Google Drive
 
 Install the dependencies in `requirements.txt`, then enable both the [Google Drive API](https://developers.google.com/workspace/drive/api/quickstart/python) and [Google Sheets API](https://developers.google.com/workspace/sheets/api/quickstart/python) in a Google Cloud project. Configure the OAuth consent screen, add your Google account as a test user if the app is External and in testing, and create a **Desktop app OAuth client**. Download its JSON to `credentials.json` in this repository. This is an OAuth client ID and secret, not an API key; an API key cannot update your private Drive files. This command uses the [Drive `drive` scope](https://developers.google.com/workspace/drive/api/guides/api-specific-auth) so it can access an existing file you created yourself. Keep the client JSON and saved token private.

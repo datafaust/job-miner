@@ -20,3 +20,11 @@ document.querySelectorAll("form[data-start-search]").forEach((form) => {
     button.textContent = "Starting search…";
   });
 });
+const addJobDialog = document.querySelector("#add-job-dialog");
+if (addJobDialog) {
+  document.querySelector("[data-open-add-job]").addEventListener("click", () => addJobDialog.showModal());
+  addJobDialog.querySelectorAll("[data-close-add-job]").forEach((button) => {
+    button.addEventListener("click", () => addJobDialog.close());
+  });
+  if (addJobDialog.hasAttribute("data-open-on-load")) addJobDialog.showModal();
+}

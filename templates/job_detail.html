@@ -7,7 +7,7 @@
     <h1 class="h2 mb-1">{{ job.title }}</h1>
     <p class="text-secondary mb-0">{{ job.company or 'Company unavailable' }} · {{ job.source }}</p>
   </div>
-  <a class="btn btn-outline-primary text-nowrap" href="{{ job.url }}" target="_blank" rel="noopener noreferrer">Original listing ↗</a>
+  {% if job.url %}<a class="btn btn-outline-primary text-nowrap" href="{{ job.url }}" target="_blank" rel="noopener noreferrer">Original listing ↗</a>{% endif %}
 </div>
 
 <div class="row g-4">
