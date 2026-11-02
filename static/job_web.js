@@ -12,3 +12,12 @@ document.querySelectorAll("tr[data-href]").forEach((row) => {
     window.location.href = row.dataset.href;
   });
 });
+
+const addJobDialog = document.querySelector("#add-job-dialog");
+if (addJobDialog) {
+  document.querySelector("[data-open-add-job]").addEventListener("click", () => addJobDialog.showModal());
+  addJobDialog.querySelectorAll("[data-close-add-job]").forEach((button) => {
+    button.addEventListener("click", () => addJobDialog.close());
+  });
+  if (addJobDialog.hasAttribute("data-open-on-load")) addJobDialog.showModal();
+}

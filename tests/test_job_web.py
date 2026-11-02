@@ -14,6 +14,8 @@ from docx import Document
 import render_resume
 import job_web
 from job_tools import job_history
+from job_tools import manual_jobs
+from job_tools import prospects
 from job_tools import resume_web_tasks as tasks
 from job_web import app
 
@@ -31,6 +33,9 @@ class JobWebTests(unittest.TestCase):
         self.task_patch = patch.object(tasks, "TASK_ROOT", self.root / "requests")
         self.task_patch.start()
         self.addCleanup(self.task_patch.stop)
+        self.manual_dir_patch = patch.object(manual_jobs, "JOBS_DIR", self.root / "jobs")
+        self.manual_dir_patch.start()
+        self.addCleanup(self.manual_dir_patch.stop)
         self.model_patch = patch.object(job_web, "_available_models", return_value=(["qwen2.5:7b"], None))
         self.model_patch.start()
         self.addCleanup(self.model_patch.stop)
@@ -100,6 +105,65 @@ class JobWebTests(unittest.TestCase):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"No saved jobs yet", response.data)
+
+    def test_add_pasted_job_from_dialog_and_reopen_posting(self):
+        page = self.client.get("/")
+        self.assertIn(b"data-open-add-job", page.data)
+        self.assertIn(b'<dialog class="add-job-dialog"', page.data)
+        self.assertIn(b'id="add-job-url" name="url" type="url"', page.data)
+        self.assertIn(b"Job information", page.data)
+        token = re.search(rb'name="token" value="([^"]+)"', page.data).group(1).decode()
+        posting = "Job title: Data Analyst\nCompany: Example Co\nLocation: Remote - US\nSalary: $90,000 - $110,000\n\nAnalyze data."
+        url = "https://example.com/jobs/data-analyst"
+        response = self.client.post("/jobs/add", data={"token": token, "posting_text": posting, "url": url})
+        self.assertEqual(response.status_code, 302)
+        from urllib.parse import parse_qs, urlsplit
+        key = parse_qs(urlsplit(response.location).query)["added"][0]
+        self.assertEqual(key, job_history.job_key(url))
+        self.assertIn(b"Saved", self.client.get(response.location).data)
+        detail = self.client.get(f"/jobs/{key}")
+        self.assertIn(b"Data Analyst", detail.data)
+        self.assertIn(b"Example Co", detail.data)
+        self.assertIn(b"Analyze data.", detail.data)
+        self.assertIn(b"Original listing", detail.data)
+        self.assertIn(b"Data Analyst", self.client.get("/").data)
+        self.assertEqual(self.client.post("/jobs/add", data={"token": token, "posting_text": posting, "url": url}).status_code, 400)
+        with job_history._database() as connection:
+            row = connection.execute("SELECT salary_range, remote_status, posted_at FROM prospective_jobs WHERE job_key = ?", (key,)).fetchone()
+        self.assertEqual(row, ("$90,000 - $110,000", "remote", None))
+        self.assertEqual(prospects.backfill(), 1)
+        self.assertEqual(job_history.saved_job(key)[0], url)
+
+    def test_add_job_with_url_and_invalid_input(self):
+        token = job_web.confirmation_signer.dumps({"add_job": True})
+        self.assertEqual(self.client.post("/jobs/add", data={"posting_text": "Engineer"}).status_code, 400)
+        missing_url = self.client.post("/jobs/add", data={
+            "token": token, "posting_text": "Job title: Engineer\nJob URL: https://example.com/job"
+        })
+        self.assertEqual(missing_url.status_code, 400)
+        self.assertIn(b"Enter the original listing URL", missing_url.data)
+        self.assertIn(b"data-open-on-load", missing_url.data)
+        bad = self.client.post("/jobs/add", data={"token": token, "posting_text": "", "url": "https://example.com/job"})
+        self.assertEqual(bad.status_code, 400)
+        self.assertIn(b"Paste a job description", bad.data)
+        bad_url = self.client.post("/jobs/add", data={"token": token, "posting_text": "Engineer", "url": "not a url"})
+        self.assertEqual(bad_url.status_code, 400)
+        response = self.client.post("/jobs/add", data={"token": token, "posting_text": "Job title: Engineer\nBuild things.", "url": "https://example.com/job"})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(b"Original listing", self.client.get("/jobs/" + job_history.job_key("https://example.com/job")).data)
+        self.assertEqual(self.client.get("/jobs/add").status_code, 404)
+
+    def test_manual_parser_keeps_missing_facts_empty(self):
+        facts = manual_jobs.parse_posting(
+            "Job title: Researcher\nCompany: N/A\nLocation: Not listed\nSalary: Unknown\nPosted: N/A\nResearch topics."
+        )
+        self.assertEqual(facts["job_title"], "Researcher")
+        self.assertIsNone(facts["company"])
+        self.assertIsNone(facts["location"])
+        self.assertIsNone(facts["salary_range"])
+        self.assertIsNone(facts["posted_at"])
+        self.assertIsNone(facts["posted_text"])
+        self.assertEqual(facts["remote_status"], "unknown")
 
     def test_all_saved_jobs_and_detail_even_without_optional_rows(self):
         first = self.save_idealist("a" * 32, "Data Engineer")

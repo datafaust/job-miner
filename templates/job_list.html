@@ -6,7 +6,30 @@
     <h1 class="h2 mb-1">Saved jobs</h1>
     <p class="text-secondary mb-0">{{ saved_total }} posting{% if saved_total != 1 %}s{% endif %} collected</p>
   </div>
+  <button class="btn btn-primary" type="button" data-open-add-job>Add job</button>
 </div>
+
+<dialog class="add-job-dialog" id="add-job-dialog" aria-labelledby="add-job-title" {% if add_error %}data-open-on-load{% endif %}>
+  <form method="post" action="{{ url_for('job_add') }}">
+    <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+      <h2 class="h4 mb-0" id="add-job-title">Add a job</h2>
+      <button class="btn-close" type="button" data-close-add-job aria-label="Close"></button>
+    </div>
+    <p class="text-secondary small">Paste the posting. Include its title and any available company, location, salary, and posting date.</p>
+    {% if add_error %}<div class="alert alert-danger" role="alert">{{ add_error }}</div>{% endif %}
+    <input type="hidden" name="token" value="{{ add_token }}">
+    <label class="form-label" for="add-job-url">Original listing URL</label>
+    <input class="form-control mb-3" id="add-job-url" name="url" type="url" value="{{ add_url }}" placeholder="https://example.com/jobs/123" required>
+    <label class="form-label" for="add-job-text">Job information</label>
+    <textarea class="form-control mb-3" id="add-job-text" name="posting_text" rows="14" maxlength="100000" required placeholder="Job title: Data Analyst&#10;Company: Example Co.&#10;Location: Remote&#10;Salary: $90,000–$110,000&#10;&#10;Paste the full description here.">{{ add_posting_text }}</textarea>
+    <div class="d-flex justify-content-end gap-2">
+      <button class="btn btn-outline-secondary" type="button" data-close-add-job>Cancel</button>
+      <button class="btn btn-primary" type="submit">Save job</button>
+    </div>
+  </form>
+</dialog>
+
+{% if added_job %}<div class="alert alert-success" role="status">Saved <a href="{{ url_for('job_detail', job_id=added_job.job_key) }}">{{ added_job.title }}</a>.</div>{% endif %}
 
 <form method="get" action="{{ url_for('job_list') }}" class="card border-0 shadow-sm mb-4">
   <input type="hidden" name="sort" value="{{ sort }}">

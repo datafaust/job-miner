@@ -27,6 +27,10 @@ def _json_posting(job):
     if not isinstance(job, dict):
         raise ValueError("Posting JSON must be an object")
 
+    if job.get("_job_miner_manual") is True:
+        title = _required_text(job.get("title"), "title")
+        url = _optional_text(job.get("url"))
+        return "manual", title, url, _required_text(job.get("posting_text"), "text")
     if "content" in job and "absolute_url" in job:
         title = _required_text(job.get("title"), "title")
         url = _optional_text(job.get("absolute_url"))

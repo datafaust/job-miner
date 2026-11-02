@@ -1,6 +1,7 @@
 """Extract source-backed facts and export a prospective job list."""
 
 import argparse
+import hashlib
 import json
 import re
 from datetime import datetime, timezone
@@ -182,7 +183,9 @@ def extract_and_save(url, detail_file):
         path = SOURCE_DIR / path
     if path.suffix == ".json":
         job = json.loads(path.read_text(encoding="utf-8"))
-        if path.name.startswith("JOB_remoteok_"):
+        if job.get("_job_miner_manual") is True:
+            facts = job["facts"]
+        elif path.name.startswith("JOB_remoteok_"):
             facts = extract_remoteok(job)
         elif path.name.startswith("JOB_remotive_"):
             facts = extract_remotive(job)
@@ -214,7 +217,7 @@ def extract_and_save(url, detail_file):
                    remote_status = excluded.remote_status,
                    location = excluded.location,
                    extracted_at = CURRENT_TIMESTAMP""",
-            (job_history.job_key(url), *(facts[field] for field in (
+            (job_history.job_key(url) if url else "local:" + hashlib.sha256(path.read_bytes()).hexdigest()[:16], *(facts[field] for field in (
                 "job_title", "company", "salary_range", "posted_at", "posted_text",
                 "remote_status", "location",
             ))),

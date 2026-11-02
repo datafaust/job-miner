@@ -85,6 +85,8 @@ def job_key(url):
 
 def job_source(key, url):
     """Name a saved posting's source from its stable key or original URL."""
+    if key.startswith("local:"):
+        return "Manual"
     if key.startswith("idealist:"):
         return "Idealist"
     if key.startswith("greenhouse:"):
