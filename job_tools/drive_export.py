@@ -17,9 +17,9 @@ from openpyxl import load_workbook
 from openpyxl.styles import Font
 
 from job_tools.job_stats import source_counts
+from job_miner.paths import PROJECT_DIR
 
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 SHEETS_MIME = "application/vnd.google-apps.spreadsheet"

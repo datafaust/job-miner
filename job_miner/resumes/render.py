@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Render a resume from a YAML accomplishment inventory + JSON selection.
-Usage: python render_resume.py --inventory master_accomplishments.yaml --selection selection.json --template resume-template.docx --output generated-resume.docx
-Selection filenames are read from generated_selections beside this script.
-Template filenames are read from templates beside this script.
-The output file is saved in generated_resumes beside this script.
+Usage: python -m job_miner.cli.render --inventory master_accomplishments.yaml --selection selection.json --template resume-template.docx --output generated-resume.docx
+Selection filenames are read from generated_selections in the repository root.
+Template filenames are read from templates in the repository root.
+The output file is saved in generated_resumes in the repository root.
 Requires: python-docx, pyyaml. LibreOffice can export the output to PDF.
 """
-import argparse, json
 from pathlib import Path
 import yaml
 from docx import Document
@@ -16,6 +15,7 @@ from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from job_tools.resume_validation import validate_selection
+from job_miner.paths import PROJECT_DIR
 
 
 def add_bullet(doc, text):
@@ -45,7 +45,6 @@ def add_two_side(doc, left, right, style, bold_left=True):
     p=a.paragraphs[0];p.style=doc.styles[style];p.add_run(left).bold=bold_left
     p=b.paragraphs[0];p.style=doc.styles[style];p.alignment=WD_ALIGN_PARAGRAPH.RIGHT;p.add_run(right)
     return table
-
 
 
 def add_summary(doc, inv, summary):
@@ -84,7 +83,7 @@ def add_summary(doc, inv, summary):
 def produce(inv, sel, template, output):
     # Keep direct renderer calls behind the same structural validation gate.
     validate_selection(sel, inv, rewrite_mode='light')
-    template_dir = Path(__file__).resolve().parent / 'templates'
+    template_dir = PROJECT_DIR / 'templates'
     template_dir.mkdir(parents=True, exist_ok=True)
     template_path = Path(template)
     if template_path.parent == Path('.'):
@@ -158,19 +157,8 @@ def produce(inv, sel, template, output):
         for pid in sel['publications']:
             if pid not in pubs: raise ValueError('Unknown publication '+pid)
             add_bullet(doc,pubs[pid])
-    output_dir = Path(__file__).resolve().parent / 'generated_resumes'
+    output_dir = PROJECT_DIR / 'generated_resumes'
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / Path(output).name
     doc.save(output_path)
     return output_path
-
-if __name__=='__main__':
-    ap=argparse.ArgumentParser();ap.add_argument('--inventory',default='master_accomplishments.yaml');ap.add_argument('--selection',default='selection.json');ap.add_argument('--template',default='resume-template.docx');ap.add_argument('--output',default='generated-resume.docx')
-    x=ap.parse_args()
-    selection_path = Path(x.selection)
-    if selection_path.parent == Path('.'):
-        selection_path = Path(__file__).resolve().parent / 'generated_selections' / selection_path
-    with open(x.inventory,encoding='utf-8') as f: inventory=yaml.safe_load(f)
-    with selection_path.open(encoding='utf-8') as f: selection=json.load(f)
-    output_path = produce(inventory,selection,x.template,x.output)
-    print('Wrote', output_path)

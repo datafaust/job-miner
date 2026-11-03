@@ -6,16 +6,16 @@ import hashlib
 import json
 import re
 import sys
-from pathlib import Path
 
 import requests
 import yaml
 
 from job_tools import job_history
 from job_tools.resume_inputs import load_saved_posting
+from job_miner.paths import PROJECT_DIR
 
 
-INVENTORY_PATH = Path(__file__).resolve().parent / "master_accomplishments.yaml"
+INVENTORY_PATH = PROJECT_DIR / "master_accomplishments.yaml"
 PROMPT_VERSION = "fit-grader-v4"
 OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
 NAMED_TOOLS = ("BigQuery", "dbt", "Workday", "Salesforce", "Looker", "Power BI",

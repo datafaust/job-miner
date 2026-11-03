@@ -11,9 +11,10 @@ from job_tools.location import greenhouse_matches_location
 from job_tools.prospects import extract_and_save
 from job_tools.workflow_config import LIMITS
 from job_tools.relevance import is_relevant, role_profile, title_strength
+from job_miner.paths import PROJECT_DIR
 
 MAX_GREENHOUSE_SUMMARIES = LIMITS.greenhouse_jobs_per_run
-BOARD_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "greenhouse_boards.json"
+BOARD_CONFIG_PATH = PROJECT_DIR / "config" / "greenhouse_boards.json"
 
 
 def load_greenhouse_boards(path=BOARD_CONFIG_PATH):

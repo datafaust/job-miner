@@ -8,12 +8,12 @@ From the repository root, with the virtual environment active:
 
 ```bash
 python -m pip install -r requirements.txt
-python job_web.py
+python -m job_miner.web.app
 ```
 
-Open `http://127.0.0.1:5055`. Use `--port` to change the port; Ctrl+C stops the frontend. It reads saved postings from `job_history.sqlite3` and their source files; collect jobs with **New job search** or `main.py`. Browsing does not require Ollama. Styling is local, and the server binds to localhost by default.
+Open `http://127.0.0.1:5055`. Use `--port` to change the port; Ctrl+C stops the frontend. It reads saved postings from `job_history.sqlite3` and their source files; collect jobs with **New job search** or `job_miner/cli/search.py`. Browsing does not require Ollama. Styling is local, and the server binds to localhost by default.
 
-- **New job search** beside the heading requires keywords and location (NYC or remote). Confirm with **Start search**. Browser searches always run `main.py --no-summary`; the frontend cannot enable summarization. Idealist uses search order without calling Ollama. The status page shows a loading indicator and elapsed time, refreshing every five seconds. Use **View saved jobs** to see results. Searches continue in a separate worker if the page or frontend closes, and browser requests queue one at a time. Status and logs are saved under `generated_search_requests/`.
+- **New job search** beside the heading requires keywords and location (NYC or remote). Confirm with **Start search**. Browser searches always run `python -m job_miner.cli.search --no-summary`; the frontend cannot enable summarization. Idealist uses search order without calling Ollama. The status page shows a loading indicator and elapsed time, refreshing every five seconds. Use **View saved jobs** to see results. Searches continue in a separate worker if the page or frontend closes, and browser requests queue one at a time. Status and logs are saved under `generated_search_requests/`.
 - Search titles/companies, filter source or work arrangement, and browse 25 jobs per page. Click a row for the saved posting, source details, and AI result.
 - **Posted** shows the source date or saved relative label (e.g. “Published 2 days ago,” which does not update). **Saved (UTC)** shows the collection date. **Resume Generated** shows ✓ after a successful render.
 - The trash icon asks for confirmation before hiding a job. Its database record and artifacts remain, so later searches still skip it. Hidden jobs are excluded from list counts; there is currently no restore control.
@@ -25,14 +25,14 @@ Each render saves a new file under `generated_resumes/` with the same download f
 
 ## Resume selection
 
-The separate resume workflow begins with `resume_cli.py`. It loads one saved posting or a local `.json`/`.txt` posting, then asks a local Ollama model through CrewAI to produce a job-specific selection JSON. It produces a selection JSON for review; render it separately with `render_resume.py`.
+The separate resume workflow begins with `job_miner/cli/resume.py`. It loads one saved posting or a local `.json`/`.txt` posting, then asks a local Ollama model through CrewAI to produce a job-specific selection JSON. It produces a selection JSON for review; render it separately with `job_miner/cli/render.py`.
 
 ```bash
-python resume_cli.py --job-id greenhouse:8172487 --model qwen2.5:7b --rewrite-mode light
-python resume_cli.py --posting-file /path/to/posting.txt --job-title "Data Engineer" --job-url https://example.com/jobs/123 --model openhermes
+python -m job_miner.cli.resume --job-id greenhouse:8172487 --model qwen2.5:7b --rewrite-mode light
+python -m job_miner.cli.resume --posting-file /path/to/posting.txt --job-title "Data Engineer" --job-url https://example.com/jobs/123 --model openhermes
 ```
 
-`--job-id` accepts the stable IDs displayed by `python main.py --saved-summaries`; `--posting-file` accepts a saved source JSON or a plain text posting. For plain text, the first nonempty line is used as the title unless `--job-title` is supplied. A local posting without a URL receives a content-derived `local:` ID and a null URL. `--model` defaults to `openhermes`, as in `main.py`; `--rewrite-mode` accepts `none`, `light` (default), or `targeted`. The browser’s Bullet mode dropdown offers the same modes and defaults to No changes (`none`).
+`--job-id` accepts the stable IDs displayed by `python -m job_miner.cli.search --saved-summaries`; `--posting-file` accepts a saved source JSON or a plain text posting. For plain text, the first nonempty line is used as the title unless `--job-title` is supplied. A local posting without a URL receives a content-derived `local:` ID and a null URL. `--model` defaults to `openhermes`, as in `job_miner/cli/search.py`; `--rewrite-mode` accepts `none`, `light` (default), or `targeted`. The browser’s Bullet mode dropdown offers the same modes and defaults to No changes (`none`).
 
 The selector requests an 8,192-token Ollama context and lets Ollama generate until the model stops (`num_predict=-1`). A 20-minute request timeout remains in place. These settings are recorded in each run manifest.
 
@@ -40,15 +40,15 @@ Each run creates `generated_resume_runs/<job-id>/<timestamp>/` with `posting.txt
 
 Parsing or structural validation failures trigger one automatic repair attempt with the rejected response and specific errors. Each attempt retains `selection_raw_attempt_N.txt` and `validation_report_attempt_N.json`; `selection_raw.txt` contains the latest reply. Model request failures and evidence review flags do not trigger retries. If the repair also fails, no validated selection is saved.
 
-Validation checks JSON shape, source IDs and ownership, ordering, duplicates, bullet minimums, summary length and `SUM-001`, skill categories, exact certification text, and unverified date overrides. Invalid output leaves its raw reply and all detected errors in the run directory; it does not produce a selection or DOCX. The direct `render_resume.py` entry point applies the same structural checks before opening the template. The evidence report extracts labelled job requirements and suggests selected accomplishment IDs based on shared words. It also flags new numbers, technical terms, technology-specific tenure, weak wording overlap in AI-authored prose, and skill items missing from their inventory category. These are leads for human review, not a factual proof or an AI score. Review the generated wording against the original inventory and posting before rendering.
+Validation checks JSON shape, source IDs and ownership, ordering, duplicates, bullet minimums, summary length and `SUM-001`, skill categories, exact certification text, and unverified date overrides. Invalid output leaves its raw reply and all detected errors in the run directory; it does not produce a selection or DOCX. The direct `job_miner/cli/render.py` entry point applies the same structural checks before opening the template. The evidence report extracts labelled job requirements and suggests selected accomplishment IDs based on shared words. It also flags new numbers, technical terms, technology-specific tenure, weak wording overlap in AI-authored prose, and skill items missing from their inventory category. These are leads for human review, not a factual proof or an AI score. Review the generated wording against the original inventory and posting before rendering.
 
 ## What happens during a run
 
-1. [`main.py`](../main.py) visits each board in [`config/greenhouse_boards.json`](../config/greenhouse_boards.json) and fetches its jobs with full descriptions. The entered `nyc` or `remote` choice filters Greenhouse jobs by their published location labels before ranking. Configured roles also pass through the relevance check described below. Candidates from different boards are taken in rounds, with **at most two Greenhouse jobs summarized per run** across all boards by default. A failed board request is reported, and the search continues through the remaining boards and Idealist.
+1. [`job_miner/cli/search.py`](../job_miner/cli/search.py) visits each board in [`config/greenhouse_boards.json`](../config/greenhouse_boards.json) and fetches its jobs with full descriptions. The entered `nyc` or `remote` choice filters Greenhouse jobs by their published location labels before ranking. Configured roles also pass through the relevance check described below. Candidates from different boards are taken in rounds, with **at most two Greenhouse jobs summarized per run** across all boards by default. A failed board request is reported, and the search continues through the remaining boards and Idealist.
 2. Each processed Greenhouse job's complete API listing is saved as `jobs/JOB_greenhouse_<board-token>_<id>.json`. Its text is given to the organizer, and its Greenhouse ID is recorded in history. Other Greenhouse postings remain eligible for later runs.
    Lever boards run next with the same location choices and a separate cap of two summaries. Their saved API listings are `jobs/JOB_lever_<site>_<id>.json`. Ashby boards in [`config/ashby_boards.json`](../config/ashby_boards.json) then run with their own cap of two summaries; saved listings are `jobs/JOB_ashby_<board>_<id>.json`.
 3. For `nyc`, the Idealist search adds `New York City` to the keywords; this is a keyword preference, not a strict location filter. For `remote`, it uses Idealist's Remote location-type filter with the original keywords. The search defaults to Best Match; `--idealist-sort newest` puts recently posted jobs first. It reports how many listings it recovered and how many remain after filtering local history, writes the remaining listings to `output.json`, and returns up to 1,000 unprocessed listings with the current configuration.
-4. The selection agent in [`job_agents.py`](../job_agents.py) recommends the first Idealist listing to process. With `--no-summary`, the workflow skips that agent and uses search order. The detail tool expands postings and checks configured-role relevance before saving them as `jobs/JOB_idealist_<id>.txt` and recording them in history. With the current configuration, the workflow saves up to 1,000 Idealist jobs per run, considering the rest of the shortlist in search order.
+4. The selection agent in [`job_miner/search/agents.py`](../job_miner/search/agents.py) recommends the first Idealist listing to process. With `--no-summary`, the workflow skips that agent and uses search order. The detail tool expands postings and checks configured-role relevance before saving them as `jobs/JOB_idealist_<id>.txt` and recording them in history. With the current configuration, the workflow saves up to 1,000 Idealist jobs per run, considering the rest of the shortlist in search order.
 5. For each selected posting, the organizer receives the actual posting text and can write a summary or say that a summary is unnecessary. Its decision is saved in `job_history.sqlite3`. The terminal prints the source URL, search listing, decision, and original posting text.
 6. A separate, rule-based extractor saves source-backed title, company, salary range, posting date or source age, work arrangement, and location in the `prospective_jobs` table. It runs when a posting is saved, independently of the AI summary.
 
@@ -111,7 +111,7 @@ python -m job_tools.prospects export
 
 The second command writes `prospective_jobs.json` in the current directory. It does not contact Google or run an AI agent. The extractor uses explicit source fields and labels; an AI extraction step can be added later for ambiguous postings, with its proposed values checked against the source before saving.
 
-To add a job by hand, open the local saved-jobs browser (`python job_web.py`) and click **Add job**. In the popup, enter the original listing URL and paste the posting. Lines such as `Job title:`, `Company:`, `Location:`, `Salary:`, and `Date posted:` help the parser identify facts. The full paste is saved for the detail page and resume tailoring. Unclear or missing facts remain empty; work arrangement is `unknown` unless the posting explicitly identifies it. A duplicate listing URL will not create another row.
+To add a job by hand, open the local saved-jobs browser (`python -m job_miner.web.app`) and click **Add job**. In the popup, enter the original listing URL and paste the posting. Lines such as `Job title:`, `Company:`, `Location:`, `Salary:`, and `Date posted:` help the parser identify facts. The full paste is saved for the detail page and resume tailoring. Unclear or missing facts remain empty; work arrangement is `unknown` unless the posting explicitly identifies it. A duplicate listing URL will not create another row.
 
 #### Add jobs to a worksheet in Google Drive
 
@@ -139,21 +139,21 @@ The first upload opens a browser for Google sign-in and saves the OAuth token lo
 After scraping jobs, run the fit grader separately with an installed local Ollama model:
 
 ```sh
-python fit_grader.py --job 'greenhouse:123456' --model llama3.2
-python fit_grader.py --all --model llama3.2
+python -m job_miner.cli.grade --job 'greenhouse:123456' --model llama3.2
+python -m job_miner.cli.grade --all --model llama3.2
 ```
 
-Use the **Job ID** on a saved job's detail page for `--job`. `--all` processes visible saved jobs and continues past individual failures. It skips a job when its posting, `master_accomplishments.yaml`, prompt version, and model match the stored grade; add `--force` to regrade. The command exits with status 1 if any job fails, making it suitable for a later cron run. Start Ollama and install the model before running it. The grader calls Ollama's local API directly; it does not run `main.py` or render a resume.
+Use the **Job ID** on a saved job's detail page for `--job`. `--all` processes visible saved jobs and continues past individual failures. It skips a job when its posting, `master_accomplishments.yaml`, prompt version, and model match the stored grade; add `--force` to regrade. The command exits with status 1 if any job fails, making it suitable for a later cron run. Start Ollama and install the model before running it. The grader calls Ollama's local API directly; it does not run `job_miner/cli/search.py` or render a resume.
 
 Grades are stored in `job_fit_grades` in `job_history.sqlite3`, with a score, strong/possible/weak tier, explanation, cited accomplishment IDs and source wording, model, timestamp, and input hashes. The saved-jobs page sorts by **Fit** by default; ungraded jobs appear last and retain saved-date order. You can still click any other header to sort by it. Open a job to review the requirements, evidence, and gaps behind its grade. Scores are a review aid and should be checked against the original posting, especially when a source provides only a description snippet.
 
 ### Saved AI results
 
-The `job_summaries` table in `job_history.sqlite3` stores one AI result per stable job ID, linked to the saved original posting. It records the title, model, result, timestamp, and whether the model produced a summary, judged one unnecessary, or failed. A later result for the same job ID replaces the earlier one. Pass `--no-summary` to `main.py` to save jobs and prospect facts without running the organizer agent; these jobs have no `job_summaries` row and do not appear under `--saved-summaries`. Idealist uses search order without calling the selection agent in this mode. `output.json` remains a temporary search snapshot.
+The `job_summaries` table in `job_history.sqlite3` stores one AI result per stable job ID, linked to the saved original posting. It records the title, model, result, timestamp, and whether the model produced a summary, judged one unnecessary, or failed. A later result for the same job ID replaces the earlier one. Pass `--no-summary` to `job_miner/cli/search.py` to save jobs and prospect facts without running the organizer agent; these jobs have no `job_summaries` row and do not appear under `--saved-summaries`. Idealist uses search order without calling the selection agent in this mode. `output.json` remains a temporary search snapshot.
 
 ### Counts and history reset
 
-At the end of each `main.py` search, the terminal shows how many new jobs, prospect rows, and AI results were saved to SQLite, with counts by source. It also shows cumulative database totals and the number of saved jobs missing prospect facts. The JSON export and Drive upload print row counts by source; only saved postings are included, not every search result.
+At the end of each `job_miner/cli/search.py` search, the terminal shows how many new jobs, prospect rows, and AI results were saved to SQLite, with counts by source. It also shows cumulative database totals and the number of saved jobs missing prospect facts. The JSON export and Drive upload print row counts by source; only saved postings are included, not every search result.
 
 To inspect totals or clear local history with a count of what was removed:
 
@@ -167,7 +167,7 @@ The reset removes the local history database, saved `jobs/JOB_*` postings, searc
 To read saved results without starting a new search or Ollama session:
 
 ```sh
-python main.py --saved-summaries
+python -m job_miner.cli.search --saved-summaries
 ```
 
 Only runs made after this change have saved AI results; earlier terminal output cannot be recovered from the database. The original Idealist text and Greenhouse JSON files remain in `jobs/` so you can compare any result with its source.
@@ -188,4 +188,4 @@ tail -n 10 summary_attempts.jsonl
 - Scraping relies on fixed Idealist page selectors, which can break when the site layout changes.
 - The organizer agent has no tools of its own; it summarizes the scraped posting supplied by the workflow. Its summary should be checked against the original text printed below it.
 - Automated tests cover job history and the workflow with mocked browser and model calls; a live search still depends on Idealist, Chrome, and Ollama.
-- The old `trip_planner_archive/trip.py` and `crew_example.py` examples no longer set API keys in source. Supply `OPENAI_API_KEY` through your environment if you use those examples. The active job workflow uses Ollama and does not need that key.
+- The old `trip_planner_archive/trip.py` and `examples/crew_example.py` examples no longer set API keys in source. Supply `OPENAI_API_KEY` through your environment if you use those examples. The active job workflow uses Ollama and does not need that key.

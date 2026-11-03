@@ -6,7 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
-from main import JobCrew
+from job_miner.search.workflow import JobCrew
 from job_tools import job_history, prospects
 from job_tools.greenhouse import MAX_GREENHOUSE_SUMMARIES
 from job_tools.workflow_config import LIMITS
@@ -18,7 +18,7 @@ class JobWorkflowTests(unittest.TestCase):
         adzuna_env_patch.start()
         self.addCleanup(adzuna_env_patch.stop)
         idealist_limits_patch = patch(
-            "main.LIMITS",
+            "job_miner.search.workflow.LIMITS",
             replace(LIMITS, idealist_candidates_per_run=3, idealist_jobs_per_run=1),
         )
         idealist_limits_patch.start()
@@ -26,32 +26,32 @@ class JobWorkflowTests(unittest.TestCase):
         log_directory = tempfile.TemporaryDirectory()
         self.addCleanup(log_directory.cleanup)
         self.summary_log = Path(log_directory.name) / "summary_attempts.jsonl"
-        summary_log_patch = patch("main.SUMMARY_LOG_PATH", self.summary_log)
+        summary_log_patch = patch("job_miner.search.workflow.SUMMARY_LOG_PATH", self.summary_log)
         summary_log_patch.start()
         self.addCleanup(summary_log_patch.stop)
-        crewai_log_patch = patch("main.CREWAI_LOG_PATH", Path(log_directory.name) / "crewai_log.txt")
+        crewai_log_patch = patch("job_miner.search.workflow.CREWAI_LOG_PATH", Path(log_directory.name) / "crewai_log.txt")
         crewai_log_patch.start()
         self.addCleanup(crewai_log_patch.stop)
-        summary_patch = patch("main.record_ai_result")
+        summary_patch = patch("job_miner.search.workflow.record_ai_result")
         self.record_ai_result = summary_patch.start()
         self.addCleanup(summary_patch.stop)
-        greenhouse_patch = patch("main.scrape_greenhouse")
+        greenhouse_patch = patch("job_miner.search.workflow.scrape_greenhouse")
         self.scrape_greenhouse = greenhouse_patch.start()
         self.scrape_greenhouse.return_value = []
         self.addCleanup(greenhouse_patch.stop)
-        boards_patch = patch("main.load_greenhouse_boards", return_value=[{"company": "Stripe", "token": "stripe"}])
+        boards_patch = patch("job_miner.search.workflow.load_greenhouse_boards", return_value=[{"company": "Stripe", "token": "stripe"}])
         boards_patch.start()
         self.addCleanup(boards_patch.stop)
-        lever_boards_patch = patch("main.load_lever_boards", return_value=[])
+        lever_boards_patch = patch("job_miner.search.workflow.load_lever_boards", return_value=[])
         lever_boards_patch.start()
         self.addCleanup(lever_boards_patch.stop)
-        ashby_boards_patch = patch("main.load_ashby_boards", return_value=[])
+        ashby_boards_patch = patch("job_miner.search.workflow.load_ashby_boards", return_value=[])
         ashby_boards_patch.start()
         self.addCleanup(ashby_boards_patch.stop)
-        remote_patch = patch("main.fetch_remoteok_jobs", return_value=[])
+        remote_patch = patch("job_miner.search.workflow.fetch_remoteok_jobs", return_value=[])
         self.fetch_remoteok_jobs = remote_patch.start()
         self.addCleanup(remote_patch.stop)
-        remotive_patch = patch("main.fetch_remotive_jobs", return_value=[])
+        remotive_patch = patch("job_miner.search.workflow.fetch_remotive_jobs", return_value=[])
         self.fetch_remotive_jobs = remotive_patch.start()
         self.addCleanup(remotive_patch.stop)
 
@@ -68,11 +68,11 @@ class JobWorkflowTests(unittest.TestCase):
         ]
         original_posting = "Software Engineer (Early Career)\nSalary: USD $72,000 - $82,000 / year"
 
-        with patch("main.SearchTools") as search, patch("main.BrowserTools") as browser:
+        with patch("job_miner.search.workflow.SearchTools") as search, patch("job_miner.search.workflow.BrowserTools") as browser:
             search.search_idealist.run.return_value = json.dumps(candidates)
             browser.scrape_idealist_job_details.run.return_value = original_posting
             with patch(
-                "main.Crew.kickoff",
+                "job_miner.search.workflow.Crew.kickoff",
                 side_effect=["I cannot choose a job", "No further action is needed."],
             ):
                 output = JobCrew("software engineer", "nyc", model="qwen2.5:1.5b").run()
@@ -93,9 +93,9 @@ class JobWorkflowTests(unittest.TestCase):
         self.assertEqual(attempts[0]["status"], "failed")
 
     def test_no_results_stops_before_scraping_or_ai_summary(self):
-        with patch("main.SearchTools") as search, patch("main.BrowserTools") as browser:
+        with patch("job_miner.search.workflow.SearchTools") as search, patch("job_miner.search.workflow.BrowserTools") as browser:
             search.search_idealist.run.return_value = "[]"
-            with patch("main.Crew") as crew:
+            with patch("job_miner.search.workflow.Crew") as crew:
                 output = JobCrew("nonexistent role", "nyc").run()
 
         self.assertIn("No unprocessed Idealist jobs", output)
@@ -117,7 +117,7 @@ class JobWorkflowTests(unittest.TestCase):
             try:
                 os.chdir(directory)
                 with patch.object(job_history, "HISTORY_DB_PATH", Path(directory) / "history.sqlite3"), \
-                     patch("main.SearchTools") as search, patch("main.Crew") as crew:
+                     patch("job_miner.search.workflow.SearchTools") as search, patch("job_miner.search.workflow.Crew") as crew:
                     search.search_idealist.run.return_value = "[]"
                     output = JobCrew("data analyst", "nyc", summarize=False).run()
                     self.assertTrue(job_history.is_processed(job["absolute_url"]))
@@ -136,8 +136,8 @@ class JobWorkflowTests(unittest.TestCase):
             {"text": f"Data Analyst {number}\nExample", "link": f"https://example.com/{number}"}
             for number in range(2)
         ]
-        with patch("main.SearchTools") as search, patch("main.BrowserTools") as browser, \
-             patch("main.Crew") as crew:
+        with patch("job_miner.search.workflow.SearchTools") as search, patch("job_miner.search.workflow.BrowserTools") as browser, \
+             patch("job_miner.search.workflow.Crew") as crew:
             search.search_idealist.run.return_value = json.dumps(candidates)
             browser.scrape_idealist_job_details.run.return_value = "Posting text"
             output = JobCrew("data analyst", "nyc", summarize=False, idealist_sort="newest").run()
@@ -152,8 +152,8 @@ class JobWorkflowTests(unittest.TestCase):
             {"text": "Financial Analyst\nExample", "link": "https://example.com/1"},
             {"text": "Data Analyst\nExample", "link": "https://example.com/2"},
         ]
-        with patch("main.SearchTools") as search, patch("main.BrowserTools") as browser, \
-             patch("main.Crew.kickoff", return_value="SUMMARY: Data Analyst\nAnalyze data."):
+        with patch("job_miner.search.workflow.SearchTools") as search, patch("job_miner.search.workflow.BrowserTools") as browser, \
+             patch("job_miner.search.workflow.Crew.kickoff", return_value="SUMMARY: Data Analyst\nAnalyze data."):
             search.search_idealist.run.return_value = json.dumps(candidates)
             browser.scrape_idealist_job_details.run.side_effect = [None, "Analyze data."]
             output = JobCrew("data analyst", "nyc").run()
@@ -163,8 +163,8 @@ class JobWorkflowTests(unittest.TestCase):
         self.assertIn(candidates[1]["link"], output)
 
     def test_remote_choice_reaches_both_sources(self):
-        with patch("main.greenhouse_candidates", return_value=[]) as candidates, \
-             patch("main.SearchTools") as search:
+        with patch("job_miner.search.workflow.greenhouse_candidates", return_value=[]) as candidates, \
+             patch("job_miner.search.workflow.SearchTools") as search:
             self.scrape_greenhouse.return_value = [{"title": "Example"}]
             search.search_idealist.run.return_value = "[]"
             JobCrew("data analyst", "remote").run()
@@ -176,10 +176,10 @@ class JobWorkflowTests(unittest.TestCase):
         job = {"id": "123", "position": "Data Analyst", "url": "https://remoteok.com/remote-jobs/123-data-analyst"}
         candidate = {"text": "Data Analyst\nExample\nRemote OK", "link": job["url"], "job": job}
         self.fetch_remoteok_jobs.return_value = [job]
-        with patch("main.remoteok_candidates", return_value=[candidate]) as candidates, \
-             patch("main.save_remoteok_job", return_value="Source: Remote OK\nOriginal posting") as save, \
-             patch("main.SearchTools") as search, \
-             patch("main.Crew.kickoff", return_value="SUMMARY: Data Analyst\nUseful summary"):
+        with patch("job_miner.search.workflow.remoteok_candidates", return_value=[candidate]) as candidates, \
+             patch("job_miner.search.workflow.save_remoteok_job", return_value="Source: Remote OK\nOriginal posting") as save, \
+             patch("job_miner.search.workflow.SearchTools") as search, \
+             patch("job_miner.search.workflow.Crew.kickoff", return_value="SUMMARY: Data Analyst\nUseful summary"):
             search.search_idealist.run.return_value = "[]"
             output = JobCrew("data analyst", "remote").run()
         candidates.assert_called_once_with([job], "data analyst")
@@ -193,10 +193,10 @@ class JobWorkflowTests(unittest.TestCase):
                "url": "https://remotive.com/remote-jobs/data/data-analyst-123"}
         candidate = {"text": "Data Analyst\nExample\nRemotive", "link": job["url"], "job": job}
         self.fetch_remotive_jobs.return_value = [job]
-        with patch("main.remotive_candidates", return_value=[candidate]) as candidates, \
-             patch("main.save_remotive_job", return_value="Source: Remotive\nOriginal posting") as save, \
-             patch("main.SearchTools") as search, \
-             patch("main.Crew.kickoff", return_value="SUMMARY: Data Analyst\nUseful summary"):
+        with patch("job_miner.search.workflow.remotive_candidates", return_value=[candidate]) as candidates, \
+             patch("job_miner.search.workflow.save_remotive_job", return_value="Source: Remotive\nOriginal posting") as save, \
+             patch("job_miner.search.workflow.SearchTools") as search, \
+             patch("job_miner.search.workflow.Crew.kickoff", return_value="SUMMARY: Data Analyst\nUseful summary"):
             search.search_idealist.run.return_value = "[]"
             output = JobCrew("data analyst", "remote").run()
         candidates.assert_called_once_with([job], "data analyst")
@@ -211,10 +211,10 @@ class JobWorkflowTests(unittest.TestCase):
         candidate = {"text": "Data Analyst\nExample\nNew York, NY\nSource: The Adzuna API",
                      "link": job["redirect_url"], "job": job}
         with patch.dict(os.environ, {"ADZUNA_APP_ID": "id", "ADZUNA_APP_KEY": "key"}), \
-             patch("main.fetch_adzuna_jobs", return_value=[job]) as fetch, \
-             patch("main.adzuna_candidates", return_value=[candidate]) as candidates, \
-             patch("main.save_adzuna_job", return_value="Source: The Adzuna API\nDescription snippet") as save, \
-             patch("main.SearchTools") as search:
+             patch("job_miner.search.workflow.fetch_adzuna_jobs", return_value=[job]) as fetch, \
+             patch("job_miner.search.workflow.adzuna_candidates", return_value=[candidate]) as candidates, \
+             patch("job_miner.search.workflow.save_adzuna_job", return_value="Source: The Adzuna API\nDescription snippet") as save, \
+             patch("job_miner.search.workflow.SearchTools") as search:
             search.search_idealist.run.return_value = "[]"
             output = JobCrew("data analyst", "nyc", summarize=False).run()
         fetch.assert_called_once_with("data analyst", "nyc")
@@ -228,12 +228,12 @@ class JobWorkflowTests(unittest.TestCase):
                "hostedUrl": "https://jobs.lever.co/palantir/abc123"}
         candidate = {"text": "Data Analyst\nPalantir\nNew York, NY",
                      "link": job["hostedUrl"], "job": job, "match_type": "title"}
-        with patch("main.load_lever_boards", return_value=[{"company": "Palantir", "site": "palantir"}]), \
-             patch("main.fetch_lever_jobs", return_value=[job]) as fetch, \
-             patch("main.lever_candidates", return_value=[candidate]) as candidates, \
-             patch("main.save_lever_job", return_value="Original Lever posting") as save, \
-             patch("main.SearchTools") as search, \
-             patch("main.Crew.kickoff", return_value="SUMMARY: Data Analyst\nUseful summary"):
+        with patch("job_miner.search.workflow.load_lever_boards", return_value=[{"company": "Palantir", "site": "palantir"}]), \
+             patch("job_miner.search.workflow.fetch_lever_jobs", return_value=[job]) as fetch, \
+             patch("job_miner.search.workflow.lever_candidates", return_value=[candidate]) as candidates, \
+             patch("job_miner.search.workflow.save_lever_job", return_value="Original Lever posting") as save, \
+             patch("job_miner.search.workflow.SearchTools") as search, \
+             patch("job_miner.search.workflow.Crew.kickoff", return_value="SUMMARY: Data Analyst\nUseful summary"):
             search.search_idealist.run.return_value = "[]"
             output = JobCrew("data analyst", "nyc").run()
         fetch.assert_called_once_with("palantir", eu=False)
@@ -247,12 +247,12 @@ class JobWorkflowTests(unittest.TestCase):
         job = {"title": "Data Analyst", "jobUrl": url}
         candidate = {"text": "Data Analyst\nRamp\nNew York, NY", "link": url,
                      "job": job, "match_type": "title"}
-        with patch("main.load_ashby_boards", return_value=[{"company": "Ramp", "board": "ramp"}]), \
-             patch("main.fetch_ashby_jobs", return_value=[job]) as fetch, \
-             patch("main.ashby_candidates", return_value=[candidate]) as candidates, \
-             patch("main.save_ashby_job", return_value="Original Ashby posting") as save, \
-             patch("main.SearchTools") as search, \
-             patch("main.Crew.kickoff", return_value="SUMMARY: Data Analyst\nUseful summary"):
+        with patch("job_miner.search.workflow.load_ashby_boards", return_value=[{"company": "Ramp", "board": "ramp"}]), \
+             patch("job_miner.search.workflow.fetch_ashby_jobs", return_value=[job]) as fetch, \
+             patch("job_miner.search.workflow.ashby_candidates", return_value=[candidate]) as candidates, \
+             patch("job_miner.search.workflow.save_ashby_job", return_value="Original Ashby posting") as save, \
+             patch("job_miner.search.workflow.SearchTools") as search, \
+             patch("job_miner.search.workflow.Crew.kickoff", return_value="SUMMARY: Data Analyst\nUseful summary"):
             search.search_idealist.run.return_value = "[]"
             output = JobCrew("data analyst", "nyc").run()
         fetch.assert_called_once_with("ramp")
@@ -266,10 +266,10 @@ class JobWorkflowTests(unittest.TestCase):
             "text": "Software Engineer\nExample Organization",
             "link": "https://www.idealist.org/en/nonprofit-job/6965cacf0cf845ffaaae044a336111ec-software-engineer",
         }
-        with patch("main.SearchTools") as search, patch("main.BrowserTools") as browser:
+        with patch("job_miner.search.workflow.SearchTools") as search, patch("job_miner.search.workflow.BrowserTools") as browser:
             search.search_idealist.run.return_value = json.dumps([candidate])
             browser.scrape_idealist_job_details.run.return_value = "Actual job details"
-            with patch("main.Crew.kickoff", side_effect=RuntimeError("model failed")):
+            with patch("job_miner.search.workflow.Crew.kickoff", side_effect=RuntimeError("model failed")):
                 output = JobCrew("software engineer", "nyc").run()
 
         self.assertIn(candidate["link"], output)
@@ -290,10 +290,10 @@ class JobWorkflowTests(unittest.TestCase):
             "NO_SUMMARY_NEEDED: Software Engineer (Early Career)\n"
             "Reason: The posting already separates duties, qualifications, benefits, and application details."
         )
-        with patch("main.SearchTools") as search, patch("main.BrowserTools") as browser:
+        with patch("job_miner.search.workflow.SearchTools") as search, patch("job_miner.search.workflow.BrowserTools") as browser:
             search.search_idealist.run.return_value = json.dumps([candidate])
             browser.scrape_idealist_job_details.run.return_value = "Actual job details"
-            with patch("main.Crew.kickoff", return_value=decision):
+            with patch("job_miner.search.workflow.Crew.kickoff", return_value=decision):
                 output = JobCrew("software engineer", "nyc").run()
 
         self.assertIn("No summary needed for Software Engineer (Early Career)", output)
@@ -310,10 +310,10 @@ class JobWorkflowTests(unittest.TestCase):
             "link": "https://www.idealist.org/en/nonprofit-job/8a10b7bd05454fe1b631295eb611de92-data-analyst",
         }
         summary = "SUMMARY: Data Analyst\nBuild dashboards."
-        with patch("main.SearchTools") as search, patch("main.BrowserTools") as browser:
+        with patch("job_miner.search.workflow.SearchTools") as search, patch("job_miner.search.workflow.BrowserTools") as browser:
             search.search_idealist.run.return_value = json.dumps([candidate])
             browser.scrape_idealist_job_details.run.return_value = "Build dashboards and reports."
-            with patch("main.Crew.kickoff", return_value=summary):
+            with patch("job_miner.search.workflow.Crew.kickoff", return_value=summary):
                 output = JobCrew("data analyst", "nyc", model="qwen2.5:7b").run()
 
         self.assertIn(summary, output)
@@ -326,10 +326,10 @@ class JobWorkflowTests(unittest.TestCase):
             "text": "Software Engineer (Early Career)\nExample Organization",
             "link": "https://www.idealist.org/en/nonprofit-job/6965cacf0cf845ffaaae044a336111ec-software-engineer",
         }
-        with patch("main.SearchTools") as search, patch("main.BrowserTools") as browser:
+        with patch("job_miner.search.workflow.SearchTools") as search, patch("job_miner.search.workflow.BrowserTools") as browser:
             search.search_idealist.run.return_value = json.dumps([candidate])
             browser.scrape_idealist_job_details.run.return_value = "Actual job details"
-            with patch("main.Crew.kickoff", return_value="NO_SUMMARY_NEEDED: Software Engineer (Early Career)"):
+            with patch("job_miner.search.workflow.Crew.kickoff", return_value="NO_SUMMARY_NEEDED: Software Engineer (Early Career)"):
                 output = JobCrew("software engineer", "nyc").run()
 
         self.assertIn("did not produce a job-specific summary", output)
@@ -346,11 +346,11 @@ class JobWorkflowTests(unittest.TestCase):
         }
         self.scrape_greenhouse.return_value = [job]
         candidate = {"text": "Software Engineer\nStripe\nRemote", "link": job["absolute_url"], "job": job}
-        with patch("main.greenhouse_candidates", return_value=[candidate]), \
-             patch("main.save_greenhouse_job", return_value="Software Engineer\nBuild services.") as save, \
-             patch("main.SearchTools") as search, \
-             patch("main.BrowserTools") as browser, \
-             patch("main.Crew.kickoff", return_value="SUMMARY: Software Engineer\nBuild services."):
+        with patch("job_miner.search.workflow.greenhouse_candidates", return_value=[candidate]), \
+             patch("job_miner.search.workflow.save_greenhouse_job", return_value="Software Engineer\nBuild services.") as save, \
+             patch("job_miner.search.workflow.SearchTools") as search, \
+             patch("job_miner.search.workflow.BrowserTools") as browser, \
+             patch("job_miner.search.workflow.Crew.kickoff", return_value="SUMMARY: Software Engineer\nBuild services."):
             search.search_idealist.run.return_value = "[]"
             output = JobCrew("software engineer", "nyc").run()
 
@@ -387,14 +387,14 @@ class JobWorkflowTests(unittest.TestCase):
                 raise ValueError("Invalid response")
             return jobs[token]
 
-        with patch("main.load_greenhouse_boards", return_value=boards), \
-             patch("main.greenhouse_candidates", side_effect=lambda items, query, company, location: [
+        with patch("job_miner.search.workflow.load_greenhouse_boards", return_value=boards), \
+             patch("job_miner.search.workflow.greenhouse_candidates", side_effect=lambda items, query, company, location: [
                  {"text": f"{items[0]['title']}\n{company}\nRemote", "link": items[0]["absolute_url"],
                   "job": items[0], "match_type": "title"}
              ]), \
-             patch("main.save_greenhouse_job", return_value="Original posting") as save, \
-             patch("main.SearchTools") as search, \
-             patch("main.Crew.kickoff", return_value="No summary"):
+             patch("job_miner.search.workflow.save_greenhouse_job", return_value="Original posting") as save, \
+             patch("job_miner.search.workflow.SearchTools") as search, \
+             patch("job_miner.search.workflow.Crew.kickoff", return_value="No summary"):
             self.scrape_greenhouse.side_effect = fetch
             search.search_idealist.run.return_value = "[]"
             JobCrew("software engineer", "nyc").run()
@@ -414,10 +414,10 @@ class JobWorkflowTests(unittest.TestCase):
             }
             for number in range(1, 8)
         ]
-        with patch("main.greenhouse_candidates", return_value=candidates), \
-             patch("main.save_greenhouse_job", return_value="Original posting") as save, \
-             patch("main.SearchTools") as search, \
-             patch("main.Crew.kickoff", return_value="No summary") as kickoff:
+        with patch("job_miner.search.workflow.greenhouse_candidates", return_value=candidates), \
+             patch("job_miner.search.workflow.save_greenhouse_job", return_value="Original posting") as save, \
+             patch("job_miner.search.workflow.SearchTools") as search, \
+             patch("job_miner.search.workflow.Crew.kickoff", return_value="No summary") as kickoff:
             search.search_idealist.run.return_value = "[]"
             output = JobCrew("engineer", "nyc").run()
 
@@ -433,10 +433,10 @@ class JobWorkflowTests(unittest.TestCase):
             {"text": f"Engineer {number}\nExample", "link": f"https://example.com/{number}"}
             for number in range(1, 5)
         ]
-        with patch("main.LIMITS", replace(LIMITS, idealist_candidates_per_run=3,
+        with patch("job_miner.search.workflow.LIMITS", replace(LIMITS, idealist_candidates_per_run=3,
                                            idealist_jobs_per_run=2)), \
-             patch("main.SearchTools") as search, \
-             patch("main.BrowserTools") as browser, \
+             patch("job_miner.search.workflow.SearchTools") as search, \
+             patch("job_miner.search.workflow.BrowserTools") as browser, \
              patch.object(JobCrew, "_select_candidate", return_value=candidates[0]), \
              patch.object(JobCrew, "_summarize_job", return_value="summary") as summarize:
             search.search_idealist.run.return_value = json.dumps(candidates)

@@ -6,9 +6,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import fit_grader
+import job_miner.cli.grade as fit_grader
 from job_tools import job_history
-from job_web import app
+from job_miner.web.app import app
 
 
 class FitGraderTests(unittest.TestCase):

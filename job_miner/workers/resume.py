@@ -31,7 +31,7 @@ def run(task_dir):
     run_dir = None
     try:
         from job_tools.resume_inputs import load_saved_posting
-        from resume_cli import generate_selection, prepare_run
+        from job_miner.resumes.workflow import generate_selection, prepare_run
 
         set_stage("Loading saved posting")
         posting = load_saved_posting(status["job_id"])
@@ -87,5 +87,5 @@ def _raise_canceled():
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        raise SystemExit("Usage: python resume_web_worker.py TASK_DIR")
+        raise SystemExit("Usage: python -m job_miner.workers.resume TASK_DIR")
     run(sys.argv[1])

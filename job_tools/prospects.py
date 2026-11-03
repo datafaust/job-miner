@@ -9,9 +9,10 @@ from pathlib import Path
 
 from job_tools import job_history
 from job_tools.job_stats import source_counts
+from job_miner.paths import PROJECT_DIR
 
 
-SOURCE_DIR = Path(__file__).resolve().parent.parent
+SOURCE_DIR = PROJECT_DIR
 SALARY_RANGE = re.compile(
     r"(?:USD\s*)?\$[\d,]+(?:\.\d+)?\s*(?:-|–|—|to)\s*"
     r"(?:USD\s*)?\$[\d,]+(?:\.\d+)?(?:\s*/\s*(?:year|hour|month))?",

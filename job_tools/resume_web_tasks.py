@@ -3,9 +3,9 @@
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from job_miner.paths import PROJECT_DIR
 
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
 TASK_ROOT = PROJECT_DIR / "generated_resume_requests"
 
 

@@ -25,12 +25,13 @@ from job_tools import job_history
 from job_tools import manual_jobs
 from job_tools import resume_web_tasks as tasks
 from job_tools.resume_inputs import load_saved_posting
-from render_resume import produce
+from job_miner.resumes.render import produce
+from job_miner.paths import PROJECT_DIR
 
 
 PAGE_SIZE = 25
-PROJECT_DIR = Path(__file__).resolve().parent
-app = Flask(__name__)
+app = Flask(__name__, template_folder=str(PROJECT_DIR / "templates"),
+            static_folder=str(PROJECT_DIR / "static"))
 confirmation_signer = URLSafeTimedSerializer(secrets.token_bytes(32), salt="resume-selection")
 
 
@@ -249,7 +250,7 @@ def search_start():
     try:
         with (task_dir / "worker.log").open("w", encoding="utf-8") as log:
             subprocess.Popen(
-                [sys.executable, str(PROJECT_DIR / "search_web_worker.py"), str(task_dir)],
+                [sys.executable, "-m", "job_miner.workers.search", str(task_dir)],
                 cwd=PROJECT_DIR, stdout=log, stderr=subprocess.STDOUT,
                 start_new_session=True,
             )
@@ -406,7 +407,7 @@ def resume_start():
     try:
         with (task_dir / "worker.log").open("w", encoding="utf-8") as log:
             subprocess.Popen(
-                [sys.executable, str(PROJECT_DIR / "resume_web_worker.py"), str(task_dir)],
+                [sys.executable, "-m", "job_miner.workers.resume", str(task_dir)],
                 cwd=PROJECT_DIR, stdout=log, stderr=subprocess.STDOUT,
                 start_new_session=True,
             )
@@ -497,7 +498,7 @@ def resume_cancel(task_id):
             ["ps", "-ww", "-p", str(pid), "-o", "command="],
             capture_output=True, text=True, check=False,
         )
-        if process.returncode == 0 and "resume_web_worker.py" in process.stdout and str(task_dir) in process.stdout:
+        if process.returncode == 0 and "job_miner.workers.resume" in process.stdout and str(task_dir) in process.stdout:
             try:
                 os.kill(pid, signal.SIGTERM)
             except ProcessLookupError:
