@@ -24,27 +24,42 @@ whether another is running. Counts include jobs saved by web searches during the
 batch window. Interrupted batches are marked when the next batch starts; their
 added-job count is unavailable. Existing logs are not backfilled into the table.
 
-The installed user crontab runs at 08:00 and 15:00 daily, in the host's
+The installed user crontab runs once daily at 22:00 (10 p.m.), in the host's
 America/New_York timezone (including daylight saving changes):
 
 ```cron
-0 8,15 * * * cd /home/fausto/apps/job-miner && /home/fausto/apps/job-miner/.venv/bin/python -u -m job_miner.cli.search_batch >> /home/fausto/apps/job-miner/generated_search_requests/batch-cron.log 2>&1
+0 22 * * * cd /home/fausto/apps/job-miner && /home/fausto/apps/job-miner/.venv/bin/python -u -m job_miner.cli.search_batch >> /home/fausto/apps/job-miner/generated_search_requests/batch-cron.log 2>&1
 ```
 
-Cron must be running and the host awake at those times. Inspect the schedule with
+Cron must be running and the host awake at that time. Inspect the schedule with
 `crontab -l`; edit it with `crontab -e`. The CLI loads the repository's `.env`.
 
 ## Nightly availability audit
 
-The installed user crontab also checks saved postings daily at 21:00 (9 p.m.)
+The installed user crontab also checks saved postings daily at 22:30 (10:30 p.m.)
 in America/New_York, including daylight saving changes:
 
 ```cron
-0 21 * * * cd /home/fausto/apps/job-miner && /usr/bin/flock -n /home/fausto/apps/job-miner/generated_search_requests/availability.lock /home/fausto/apps/job-miner/.venv/bin/python -u -m job_miner.cli.check_jobs --force >> /home/fausto/apps/job-miner/generated_search_requests/availability-cron.log 2>&1
+30 22 * * * cd /home/fausto/apps/job-miner && /usr/bin/flock -n /home/fausto/apps/job-miner/generated_search_requests/availability.lock /home/fausto/apps/job-miner/.venv/bin/python -u -m job_miner.cli.check_jobs --force >> /home/fausto/apps/job-miner/generated_search_requests/availability-cron.log 2>&1
 ```
 
-`--force` ensures the evening audit runs even if the afternoon searches checked
+`--force` ensures the evening audit runs even if earlier searches checked
 those boards within the normal 24-hour cache window. `flock` prevents overlapping
 scheduled audits. Results and request output append to
 `generated_search_requests/availability-cron.log`. Missing postings still require
 successful observations at least six hours apart before being marked closed.
+
+## Nightly fit grading
+
+The installed user crontab grades visible saved jobs daily at 23:00 (11 p.m.)
+in America/New_York, including daylight saving changes:
+
+```cron
+0 23 * * * cd /home/fausto/apps/job-miner && /usr/bin/flock -n /home/fausto/apps/job-miner/generated_search_requests/grading.lock /home/fausto/apps/job-miner/.venv/bin/python -u -m job_miner.cli.grade --all --model qwen3.5-27b-16k:latest >> /home/fausto/apps/job-miner/generated_search_requests/grading-cron.log 2>&1
+```
+
+Uses the installed local Ollama model `qwen3.5-27b-16k:latest`. Ollama must be
+running and the host awake. Jobs with unchanged postings, accomplishments, prompt
+version, and model are skipped. Individual failures are logged and the batch
+continues. `flock` prevents overlapping scheduled grading runs. Output appends to
+`generated_search_requests/grading-cron.log`.
