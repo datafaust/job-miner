@@ -34,7 +34,7 @@
 
 {% if added_job %}<div class="alert alert-success" role="status">Saved <a href="{{ url_for('job_detail', job_id=added_job.job_key) }}">{{ added_job.title }}</a>.</div>{% endif %}
 
-<form method="get" action="{{ url_for('job_list') }}" class="card border-0 shadow-sm mb-4">
+<form method="get" action="{{ url_for('job_list') }}" class="card border-0 shadow-sm mb-4" data-job-list-url="{{ url_for('job_list', q=q, source=source, remote=remote, page=page, sort=sort, order=order) }}">
   <input type="hidden" name="sort" value="{{ sort }}">
   <input type="hidden" name="order" value="{{ order }}">
   <div class="card-body row g-3 align-items-end">

@@ -1,0 +1,20 @@
+Using `RESUME_VALIDATION.md`, evaluate my attached finished resume against the following job description.
+
+Use `master_accomplishments.yaml`, `selection.json`, and `RESUME_TAILORING.md` as supporting references where available.
+
+Evaluate job alignment, factual accuracy, achievement quality, human readability, and formatting.
+
+Provide:
+- An editorial score using the defined rubric.
+- A requirement-to-evidence comparison.
+- Issues ranked by severity.
+- The three highest-value improvements.
+- Specific changes to the selection JSON, where appropriate.
+
+Distinguish genuine qualification gaps from fixable resume issues. Do not manufacture problems when the resume is already strong.
+
+Do not modify any files yet.
+
+**Job description:**
+
+[PASTE JOB DESCRIPTION]

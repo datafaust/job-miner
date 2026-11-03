@@ -1,3 +1,30 @@
+// Keep the applied list view in this tab, including after intermediate pages.
+// Explicit context in a detail link always takes precedence over this fallback.
+function restoreJobListNavigation() {
+  try {
+    const storageKey = "job-miner:list-url";
+    const list = document.querySelector("[data-job-list-url]");
+    if (list) {
+      sessionStorage.setItem(storageKey, list.dataset.jobListUrl);
+      return;
+    }
+    const back = document.querySelector("[data-back-to-jobs]");
+    const params = new URLSearchParams(window.location.search);
+    if (!back || ["q", "source", "remote", "page", "sort", "order"].some((key) => params.has(key))) return;
+    const saved = sessionStorage.getItem(storageKey);
+    if (!saved) return;
+    const target = new URL(saved, window.location.origin);
+    const fallback = new URL(back.href);
+    if (target.origin === fallback.origin && target.pathname === fallback.pathname) {
+      back.href = target.href;
+    }
+  } catch {
+    // Navigation still works when browser storage is unavailable.
+  }
+}
+restoreJobListNavigation();
+window.addEventListener("pageshow", restoreJobListNavigation);
+
 document.querySelectorAll("form[data-hide-job]").forEach((form) => {
   form.addEventListener("submit", (event) => {
     if (!window.confirm("Remove this job from the list? It will remain saved and won’t be collected again.")) {

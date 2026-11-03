@@ -1,7 +1,7 @@
 {% extends "job_base.html" %}
 {% block title %}{{ job.title }}{% endblock %}
 {% block content %}
-<a class="d-inline-block mb-3" href="{{ back_url }}">← Back to jobs</a>
+<a class="d-inline-block mb-3" href="{{ back_url }}" data-back-to-jobs>← Back to jobs</a>
 <div class="d-flex justify-content-between align-items-start gap-4 mb-4">
   <div>
     <h1 class="h2 mb-1">{{ job.title }}</h1>
