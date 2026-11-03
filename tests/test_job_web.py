@@ -14,6 +14,7 @@ from docx import Document
 import job_miner.resumes.render as render_resume
 import job_miner.web.app as job_web
 from job_tools import job_history
+from job_tools import search_runs
 from job_tools import manual_jobs
 from job_tools import prospects
 from job_tools import resume_web_tasks as tasks
@@ -40,6 +41,18 @@ class JobWebTests(unittest.TestCase):
         self.model_patch.start()
         self.addCleanup(self.model_patch.stop)
         self.client = app.test_client()
+
+    def test_batch_summary_empty_finished_and_running(self):
+        self.assertIn(b"No scheduled runs recorded yet.", self.client.get("/").data)
+        run_id, before = search_runs.start_run("batch.log")
+        job_history.record_processed("https://example.com/new", "new.txt")
+        search_runs.finish_run(run_id, before, 4, 1)
+        search_runs.start_run("next.log")
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"1 job was added during the last run at ", response.data)
+        self.assertIn(b"Some searches failed.", response.data)
+        self.assertIn(b"Search in progress.", response.data)
 
     def save_idealist(self, job_id, title, *, company="Acme", facts=True):
         url = f"https://www.idealist.org/en/nonprofit-job/{job_id}-{title.lower().replace(' ', '-')}"

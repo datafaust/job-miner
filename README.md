@@ -43,6 +43,13 @@ python -m job_miner.cli.search --keywords "data analyst" --location nyc --no-sum
 
 For an interactive search with AI summaries, run `python -m job_miner.cli.search`. Use `--model MODEL` to choose another installed Ollama model.
 
+List configured job categories from `config/related_keys.json`, or include all unique primary and related job titles:
+
+```sh
+python -m job_miner.cli.list_jobs
+python -m job_miner.cli.list_jobs --all-titles
+```
+
 Grade saved jobs:
 
 ```sh

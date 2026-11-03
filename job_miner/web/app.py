@@ -21,7 +21,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from job_tools import search_web_tasks as searches
 from job_tools.location import normalize_search_location
-from job_tools import job_history
+from job_tools import job_history, search_runs
 from job_tools import manual_jobs
 from job_tools import resume_web_tasks as tasks
 from job_tools.resume_inputs import load_saved_posting
@@ -177,6 +177,9 @@ def _sort_jobs(jobs, sort, order, resume_job_ids):
 
 @app.get("/")
 def job_list(add_error=None, add_url="", add_posting_text=""):
+    last_run, search_running = search_runs.latest_runs()
+    if last_run and last_run["finished_at"]:
+        last_run["finished_display"] = datetime.fromisoformat(last_run["finished_at"]).astimezone().strftime("%I:%M %p %Z on %b %d, %Y")
     all_jobs = [job for job in _saved_jobs() if job["hidden_at"] is None]
     added_job = next((job for job in all_jobs if job["job_key"] == request.args.get("added")), None)
     query, source, remote, page, sort, order = _list_state()
@@ -200,7 +203,7 @@ def job_list(add_error=None, add_url="", add_posting_text=""):
     start = (page - 1) * PAGE_SIZE
     visible_jobs = filtered[start:start + PAGE_SIZE]
     return render_template(
-        "job_list.html", jobs=visible_jobs,
+        "job_list.html", jobs=visible_jobs, last_run=last_run, search_running=search_running,
         hide_tokens={job["job_key"]: confirmation_signer.dumps({"hide_job": job["job_key"]})
                      for job in visible_jobs},
         total=len(filtered), saved_total=len(all_jobs), sources=sources,
