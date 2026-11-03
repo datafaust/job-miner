@@ -115,6 +115,21 @@ def _database():
         with connection:
             connection.execute("PRAGMA foreign_keys = ON")
             connection.execute(
+                """CREATE TABLE IF NOT EXISTS search_runs (
+                    id INTEGER PRIMARY KEY,
+                    started_at TEXT NOT NULL,
+                    finished_at TEXT,
+                    status TEXT NOT NULL CHECK (status IN
+                        ('running', 'completed', 'partial_failure', 'failed', 'interrupted')),
+                    jobs_before INTEGER NOT NULL,
+                    jobs_after INTEGER,
+                    jobs_added INTEGER,
+                    searches_attempted INTEGER NOT NULL DEFAULT 0,
+                    searches_failed INTEGER NOT NULL DEFAULT 0,
+                    log_path TEXT NOT NULL
+                )"""
+            )
+            connection.execute(
                 """CREATE TABLE IF NOT EXISTS processed_jobs (
                     job_key TEXT PRIMARY KEY,
                     url TEXT NOT NULL,

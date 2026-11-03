@@ -12,6 +12,22 @@
   </div>
 </div>
 
+<div class="alert alert-light border mb-4" role="status">
+  {% if last_run %}
+    {% if last_run.jobs_added is not none %}
+      <strong>{{ last_run.jobs_added }} job{% if last_run.jobs_added != 1 %}s{% endif %} {{ 'was' if last_run.jobs_added == 1 else 'were' }} added during the last run at {{ last_run.finished_display }}.</strong>
+    {% else %}
+      <strong>The last scheduled run was interrupted; job count unavailable.</strong>
+      <span class="text-secondary">Recorded at {{ last_run.finished_display }}.</span>
+    {% endif %}
+    {% if last_run.status == 'partial_failure' %}<span>Some searches failed.</span>{% endif %}
+    {% if last_run.status == 'failed' %}<span>Run failed; collected jobs remain saved.</span>{% endif %}
+  {% else %}
+    <span>No scheduled runs recorded yet.</span>
+  {% endif %}
+  {% if search_running %}<span class="ms-2">Search in progress.</span>{% endif %}
+</div>
+
 <dialog class="add-job-dialog" id="add-job-dialog" aria-labelledby="add-job-title" {% if add_error %}data-open-on-load{% endif %}>
   <form method="post" action="{{ url_for('job_add') }}">
     <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
