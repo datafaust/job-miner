@@ -33,3 +33,18 @@ America/New_York timezone (including daylight saving changes):
 
 Cron must be running and the host awake at those times. Inspect the schedule with
 `crontab -l`; edit it with `crontab -e`. The CLI loads the repository's `.env`.
+
+## Nightly availability audit
+
+The installed user crontab also checks saved postings daily at 21:00 (9 p.m.)
+in America/New_York, including daylight saving changes:
+
+```cron
+0 21 * * * cd /home/fausto/apps/job-miner && /usr/bin/flock -n /home/fausto/apps/job-miner/generated_search_requests/availability.lock /home/fausto/apps/job-miner/.venv/bin/python -u -m job_miner.cli.check_jobs --force >> /home/fausto/apps/job-miner/generated_search_requests/availability-cron.log 2>&1
+```
+
+`--force` ensures the evening audit runs even if the afternoon searches checked
+those boards within the normal 24-hour cache window. `flock` prevents overlapping
+scheduled audits. Results and request output append to
+`generated_search_requests/availability-cron.log`. Missing postings still require
+successful observations at least six hours apart before being marked closed.

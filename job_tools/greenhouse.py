@@ -69,7 +69,12 @@ def scrape_greenhouse(board_token="stripe"):
         timeout=30,
     )
     response.raise_for_status()
-    jobs = response.json().get("jobs", [])
+    data = response.json()
+    jobs = data.get("jobs") if isinstance(data, dict) else None
+    if not isinstance(jobs, list) or any(not isinstance(job, dict) or "id" not in job for job in jobs):
+        raise ValueError("Greenhouse returned an invalid job feed")
+    from job_tools.availability import observe_board
+    observe_board("greenhouse", board_token, [job["id"] for job in jobs])
     print(f"Greenhouse scrape succeeded for {board_token}: found {len(jobs)} jobs.")
     return jobs
 
@@ -160,6 +165,9 @@ def save_greenhouse_job(job, board_token="stripe"):
     file_path = job_dir / f"JOB_greenhouse_{safe_token}_{safe_id}.json"
     file_path.write_text(json.dumps(job, ensure_ascii=False, indent=2), encoding="utf-8")
     record_processed(url, str(file_path))
+    from job_tools.availability import record_check
+    from job_tools.job_history import job_key as availability_key
+    record_check(availability_key(url), "open", "Fetched from board feed")
     try:
         extract_and_save(url, str(file_path))
     except (OSError, ValueError, KeyError) as error:

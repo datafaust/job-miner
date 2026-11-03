@@ -22,6 +22,13 @@ def posting(id, location="New York, NY", workplace="on-site", title="Data Analys
 
 
 class LeverTests(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        db_patch = patch.object(job_history, "HISTORY_DB_PATH", Path(temp.name) / "history.sqlite3")
+        db_patch.start()
+        self.addCleanup(db_patch.stop)
+
     def test_board_config_and_endpoint(self):
         boards = load_lever_boards()
         self.assertIn({"company": "Palantir", "site": "palantir"}, boards)

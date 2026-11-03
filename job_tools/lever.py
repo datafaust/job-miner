@@ -54,8 +54,10 @@ def fetch_lever_jobs(site, eu=False, timeout=30):
                             params={"mode": "json"}, headers={"User-Agent": USER_AGENT}, timeout=timeout)
     response.raise_for_status()
     jobs = response.json()
-    if not isinstance(jobs, list):
+    if not isinstance(jobs, list) or any(not isinstance(job, dict) or "id" not in job for job in jobs):
         raise ValueError("Lever returned a non-list feed")
+    from job_tools.availability import observe_board
+    observe_board("lever_eu" if eu else "lever", site, [job["id"] for job in jobs])
     print(f"Lever fetch succeeded for {site}: found {len(jobs)} jobs.")
     return jobs
 
@@ -177,6 +179,9 @@ def save_lever_job(job, site, company=None):
         saved_job["_job_miner_company"] = company
     file_path.write_text(json.dumps(saved_job, ensure_ascii=False, indent=2), encoding="utf-8")
     record_processed(url, str(file_path))
+    from job_tools.availability import record_check
+    from job_tools.job_history import job_key as availability_key
+    record_check(availability_key(url), "open", "Fetched from board feed")
     try:
         extract_and_save(url, str(file_path))
     except (OSError, ValueError, KeyError) as error:

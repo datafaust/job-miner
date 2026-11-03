@@ -94,6 +94,8 @@ def _saved_jobs():
         connection.row_factory = sqlite3.Row
         rows = connection.execute(
             """SELECT h.job_key, h.url, h.processed_at, h.hidden_at,
+                      COALESCE(a.availability, 'unchecked') AS availability,
+                      a.checked_at, a.last_seen_open, a.evidence AS availability_evidence,
                       p.job_title, p.company, p.location, p.remote_status,
                       p.salary_range, p.posted_at, p.posted_text,
                       f.score AS fit_score, f.tier AS fit_tier,
@@ -102,6 +104,7 @@ def _saved_jobs():
                       s.title AS summary_title, s.status AS summary_status,
                       s.result_text AS summary_text, s.saved_at AS summary_saved_at
                FROM processed_jobs AS h
+               LEFT JOIN job_availability AS a USING (job_key)
                LEFT JOIN prospective_jobs AS p USING (job_key)
                LEFT JOIN job_fit_grades AS f USING (job_key)
                LEFT JOIN job_summaries AS s USING (job_key)
@@ -112,6 +115,8 @@ def _saved_jobs():
     for row in rows:
         job = dict(row)
         job["fit_assessment"] = json.loads(job["fit_assessment_json"]) if job["fit_assessment_json"] else None
+        from job_tools.availability import LABELS
+        job["availability_label"] = LABELS[job["availability"]]
         job["source"] = job_history.job_source(job["job_key"], job["url"])
         job["title"] = job["job_title"] or job["summary_title"]
         if not job["title"]:
@@ -183,6 +188,9 @@ def job_list(add_error=None, add_url="", add_posting_text=""):
     all_jobs = [job for job in _saved_jobs() if job["hidden_at"] is None]
     added_job = next((job for job in all_jobs if job["job_key"] == request.args.get("added")), None)
     query, source, remote, page, sort, order = _list_state()
+    availability = request.args.get("availability", "")
+    if availability not in {"hide_closed", "open", "possibly_closed", "closed", "unknown", "unchecked"}:
+        availability = ""
     sources = sorted({job["source"] for job in all_jobs})
     if source not in sources:
         source = ""
@@ -195,6 +203,9 @@ def job_list(add_error=None, add_url="", add_posting_text=""):
             f"{job['title']} {job['company'] or ''}".casefold())
         and (not source or job["source"] == source)
         and (not remote or job["remote_status"] == remote)
+        and (not availability or
+             (availability == "hide_closed" and job["availability"] != "closed") or
+             job["availability"] == availability)
     ]
     resume_job_ids = tasks.jobs_with_generated_resumes()
     filtered = _sort_jobs(filtered, sort, order, resume_job_ids)
@@ -206,7 +217,7 @@ def job_list(add_error=None, add_url="", add_posting_text=""):
         "job_list.html", jobs=visible_jobs, last_run=last_run, search_running=search_running,
         hide_tokens={job["job_key"]: confirmation_signer.dumps({"hide_job": job["job_key"]})
                      for job in visible_jobs},
-        total=len(filtered), saved_total=len(all_jobs), sources=sources,
+        total=len(filtered), saved_total=len(all_jobs), sources=sources, availability=availability,
         q=query, source=source, remote=remote, page=page, sort=sort, order=order,
         page_count=page_count,
         resume_job_ids=resume_job_ids,
@@ -308,7 +319,7 @@ def job_hide(job_id):
         if result.rowcount == 0:
             abort(404)
     return redirect(url_for(
-        "job_list", q=request.form.get("q", ""), source=request.form.get("source", ""),
+        "job_list", availability=request.form.get("availability", ""), q=request.form.get("q", ""), source=request.form.get("source", ""),
         remote=request.form.get("remote", ""), page=request.form.get("page", "1"),
         sort=request.form.get("sort", ""), order=request.form.get("order", ""),
     ))
@@ -327,7 +338,7 @@ def job_detail(job_id):
     else:
         posting_error = None
     query, source, remote, page, sort, order = _list_state()
-    back_url = url_for("job_list", q=query, source=source, remote=remote, page=page, sort=sort, order=order)
+    back_url = url_for("job_list", availability=request.args.get("availability", ""), q=query, source=source, remote=remote, page=page, sort=sort, order=order)
     models, model_error = _available_models()
     return render_template(
         "job_detail.html", job=job, posting=posting,

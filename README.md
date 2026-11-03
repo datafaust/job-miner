@@ -50,6 +50,23 @@ python -m job_miner.cli.list_jobs
 python -m job_miner.cli.list_jobs --all-titles
 ```
 
+Check whether saved jobs are still posted (no AI or paid APIs):
+
+```sh
+python -m job_miner.cli.check_jobs
+```
+
+Checks reuse one feed per Greenhouse, Lever, or Ashby board, then check individual
+pages for other sources. Use `--boards-only` to skip individual pages. Checks less
+than 24 hours old are skipped; `--force` bypasses that cache. Run this command daily
+with your scheduler to maintain availability even when you aren't searching.
+Regular searches also update saved jobs using the board feeds they already fetch.
+The app shows availability and offers an availability filter, including Hide closed.
+A missing job is marked Possibly closed until another successful observation at
+least six hours later. Failed or ambiguous checks show Unknown; a reachable page
+alone does not establish that a job is open. Last checked and last seen open appear
+on each job's detail page. These observations cannot establish an exact closure date.
+
 Grade saved jobs:
 
 ```sh

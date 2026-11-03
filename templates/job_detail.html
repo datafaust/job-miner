@@ -10,6 +10,14 @@
   {% if job.url %}<a class="btn btn-outline-primary text-nowrap" href="{{ job.url }}" target="_blank" rel="noopener noreferrer">Original listing ↗</a>{% endif %}
 </div>
 
+<div class="alert alert-light border" role="status">
+  <strong>{{ job.availability_label }}</strong>
+  {% if job.checked_at %} · Last checked {{ job.checked_at }} UTC{% endif %}
+  {% if job.last_seen_open %}<br>Last seen open {{ job.last_seen_open }} UTC{% endif %}
+  {% if job.availability_evidence %}<br>{{ job.availability_evidence }}.{% endif %}
+  {% if job.availability in ('possibly_closed', 'closed') %}<br>This indicates when we observed the posting missing, not its exact closure date.{% endif %}
+</div>
+
 <div class="row g-4">
   <div class="col-xl-8">
     {% if job.fit_assessment %}

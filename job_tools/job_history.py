@@ -138,6 +138,16 @@ def _database():
                     hidden_at TEXT
                 )"""
             )
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS job_availability (
+                    job_key TEXT PRIMARY KEY REFERENCES processed_jobs(job_key),
+                    availability TEXT NOT NULL DEFAULT 'unknown',
+                    checked_at TEXT,
+                    last_seen_open TEXT,
+                    missing_since TEXT,
+                    evidence TEXT
+                )"""
+            )
             columns = {row[1] for row in connection.execute("PRAGMA table_info(processed_jobs)")}
             if "hidden_at" not in columns:
                 connection.execute("ALTER TABLE processed_jobs ADD COLUMN hidden_at TEXT")

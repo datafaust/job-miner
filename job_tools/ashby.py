@@ -58,8 +58,10 @@ def fetch_ashby_jobs(board, timeout=30):
     response.raise_for_status()
     data = response.json()
     jobs = data.get("jobs") if isinstance(data, dict) else None
-    if not isinstance(jobs, list):
+    if not isinstance(jobs, list) or any(not isinstance(job, dict) or "id" not in job for job in jobs):
         raise ValueError("Ashby returned a non-list job feed")
+    from job_tools.availability import observe_board
+    observe_board("ashby", board, [job["id"] for job in jobs if job.get("isListed", True)])
     print(f"Ashby fetch succeeded for {board}: found {len(jobs)} jobs.")
     return jobs
 
@@ -178,6 +180,9 @@ def save_ashby_job(job, board, company=None):
         saved_job["_job_miner_company"] = company
     file_path.write_text(json.dumps(saved_job, ensure_ascii=False, indent=2), encoding="utf-8")
     record_processed(url, str(file_path))
+    from job_tools.availability import record_check
+    from job_tools.job_history import job_key as availability_key
+    record_check(availability_key(url), "open", "Fetched from board feed")
     try:
         extract_and_save(url, str(file_path))
     except (OSError, ValueError, KeyError) as error:

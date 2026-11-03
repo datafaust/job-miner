@@ -12,6 +12,13 @@ from job_tools.greenhouse import MAX_GREENHOUSE_SUMMARIES, greenhouse_candidates
 
 
 class GreenhouseTests(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        db_patch = patch.object(job_history, "HISTORY_DB_PATH", Path(temp.name) / "history.sqlite3")
+        db_patch.start()
+        self.addCleanup(db_patch.stop)
+
     def test_board_config_loads_unique_companies(self):
         boards = load_greenhouse_boards()
         self.assertIn({"company": "Airbnb", "token": "airbnb"}, boards)
@@ -57,7 +64,7 @@ class GreenhouseTests(unittest.TestCase):
         self.assertEqual([candidate["job"]["id"] for candidate in remote], [3])
 
     def test_fetches_stripe_jobs_and_prints_success(self):
-        jobs = [{"title": "Engineer", "content": "Full description"}]
+        jobs = [{"id": 123, "title": "Engineer", "content": "Full description"}]
         with patch("job_tools.greenhouse.requests.get") as get:
             get.return_value.json.return_value = {"jobs": jobs}
             output = io.StringIO()

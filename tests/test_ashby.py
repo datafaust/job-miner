@@ -23,6 +23,13 @@ def posting(identifier, location="Remote (US)", workplace="Remote"):
 
 
 class AshbyTests(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        db_patch = patch.object(job_history, "HISTORY_DB_PATH", Path(temp.name) / "history.sqlite3")
+        db_patch.start()
+        self.addCleanup(db_patch.stop)
+
     def test_fetch_and_config(self):
         self.assertEqual(load_ashby_boards()[0], {"company": "Ramp", "board": "ramp"})
         with patch("job_tools.ashby.requests.get") as get:

@@ -10,7 +10,7 @@ function restoreJobListNavigation() {
     }
     const back = document.querySelector("[data-back-to-jobs]");
     const params = new URLSearchParams(window.location.search);
-    if (!back || ["q", "source", "remote", "page", "sort", "order"].some((key) => params.has(key))) return;
+    if (!back || ["q", "source", "remote", "page", "sort", "order", "availability"].some((key) => params.has(key))) return;
     const saved = sessionStorage.getItem(storageKey);
     if (!saved) return;
     const target = new URL(saved, window.location.origin);
