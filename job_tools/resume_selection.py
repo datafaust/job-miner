@@ -1,4 +1,4 @@
-"""Generate and check the JSON selection consumed by render_resume.py."""
+"""Generate and check the JSON selection consumed by the resume renderer."""
 
 import json
 
@@ -89,7 +89,7 @@ def run_selection_agent(posting_text, inventory, policy, *, model, rewrite_mode)
             "if BAO is included and at least three IDs for every other included job. "
             "Return exactly one JSON object; no markdown or extra text."
         ),
-        expected_output="One valid selection JSON object for render_resume.py, with no surrounding text.",
+        expected_output="One valid selection JSON object for the resume renderer, with no surrounding text.",
         agent=agent,
     )
     return str(Crew(agents=[agent], tasks=[task], verbose=False).kickoff())

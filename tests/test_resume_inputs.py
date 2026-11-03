@@ -7,7 +7,8 @@ from unittest.mock import patch
 
 from job_tools import job_history
 from job_tools.resume_inputs import load_posting, load_saved_posting
-from resume_cli import main, prepare_run
+from job_miner.cli.resume import main
+from job_miner.resumes.workflow import prepare_run
 
 
 class ResumeInputTests(unittest.TestCase):

@@ -5,7 +5,7 @@ Using `resume-master-accomplishments.docx` as the authoritative source, generate
 ### Requirements
 
 1. **Preserve original wording** of all accomplishments, skills, summaries, certifications, education, and projects. Do not rewrite, embellish, or invent information.
-2. **Maintain the existing YAML schema** so the file remains compatible with `render_resume.py` and `RESUME_TAILORING.md`.
+2. **Maintain the existing YAML schema** so the file remains compatible with `job_miner/cli/render.py` and `RESUME_TAILORING.md`.
 3. **Preserve existing IDs** (e.g., `BAO-001`, `TLC-MGR-009`, `SUM-001`). Assign new, unique IDs only to newly added accomplishments.
 4. **Synchronize changes** from the Word document, including additions, modifications, and deletions. Do not silently discard existing information.
 5. **Preserve metadata** such as technology tags, competencies, and target roles when applicable. Update suggested metadata for new accomplishments.

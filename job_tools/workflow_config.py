@@ -3,9 +3,10 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from job_miner.paths import PROJECT_DIR
 
 
-CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "workflow_limits.json"
+CONFIG_PATH = PROJECT_DIR / "config" / "workflow_limits.json"
 
 
 @dataclass(frozen=True)

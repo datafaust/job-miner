@@ -4,9 +4,10 @@ import json
 import re
 from functools import lru_cache
 from pathlib import Path
+from job_miner.paths import PROJECT_DIR
 
 
-CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "related_keys.json"
+CONFIG_PATH = PROJECT_DIR / "config" / "related_keys.json"
 START_HEADINGS = (
     "responsibilities", "what you'll do", "what you will do", "your responsibilities",
     "what you will be doing", "what you'll be doing", "duties", "day to day",

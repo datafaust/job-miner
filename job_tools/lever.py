@@ -14,9 +14,10 @@ from job_tools.location import greenhouse_matches_location
 from job_tools.prospects import extract_and_save
 from job_tools.workflow_config import LIMITS
 from job_tools.relevance import is_relevant, role_profile, title_strength
+from job_miner.paths import PROJECT_DIR
 
 
-BOARD_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "lever_boards.json"
+BOARD_CONFIG_PATH = PROJECT_DIR / "config" / "lever_boards.json"
 MAX_LEVER_SUMMARIES = LIMITS.lever_jobs_per_run
 USER_AGENT = "JobMiner/1.0 (personal job search)"
 STOP_WORDS = {"a", "an", "and", "at", "for", "in", "job", "jobs", "of", "or",

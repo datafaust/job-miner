@@ -8,9 +8,7 @@ from job_tools.greenhouse import _description_text
 from job_tools.job_history import job_key, saved_job
 from job_tools.lever import _description as lever_description
 from job_tools.ashby import _description as ashby_description
-
-
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+from job_miner.paths import PROJECT_DIR
 
 
 def _required_text(value, field):

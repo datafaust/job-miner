@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from job_tools import resume_web_tasks as tasks
 from job_tools import resume_inputs
-from resume_web_worker import SelectionCanceled, run
+from job_miner.workers.resume import SelectionCanceled, run
 
 
 class ResumeWebWorkerTests(unittest.TestCase):
@@ -43,7 +43,7 @@ class ResumeWebWorkerTests(unittest.TestCase):
 
         fake_cli = types.SimpleNamespace(prepare_run=prepare, generate_selection=generate)
         with patch.object(resume_inputs, "load_saved_posting", return_value={"job_id": "greenhouse:123"}), patch.dict(
-            sys.modules, {"resume_cli": fake_cli}
+            sys.modules, {"job_miner.resumes.workflow": fake_cli}
         ):
             with self.assertRaises(ValueError):
                 run(self.task_dir)
@@ -76,7 +76,7 @@ class ResumeWebWorkerTests(unittest.TestCase):
 
         fake_cli = types.SimpleNamespace(prepare_run=prepare, generate_selection=generate)
         with patch.object(resume_inputs, "load_saved_posting", return_value={"job_id": "greenhouse:123"}), patch.dict(
-            sys.modules, {"resume_cli": fake_cli}
+            sys.modules, {"job_miner.resumes.workflow": fake_cli}
         ):
             run(self.task_dir)
         status = tasks.read_status(self.task_dir)
@@ -98,7 +98,7 @@ class ResumeWebWorkerTests(unittest.TestCase):
 
         fake_cli = types.SimpleNamespace(prepare_run=prepare, generate_selection=generate)
         with patch.object(resume_inputs, "load_saved_posting", return_value={"job_id": "greenhouse:123"}), patch.dict(
-            sys.modules, {"resume_cli": fake_cli}
+            sys.modules, {"job_miner.resumes.workflow": fake_cli}
         ):
             run(self.task_dir)
         self.assertEqual(tasks.read_status(self.task_dir)["state"], "canceled")

@@ -1,7 +1,7 @@
 # Resume tailoring instructions (v1.2)
 
 ## Purpose and inputs
-Generate a job-specific **selection JSON** for `render_resume.py` using:
+Generate a job-specific **selection JSON** for `job_miner/cli/render.py` using:
 1. The complete job description supplied by the user.
 2. `master_accomplishments.yaml` as the only source for the candidate's employment history, skills, credentials, projects, and accomplishments.
 3. `example_selection.json` as a **schema reference**, not as a fixed content selection.
@@ -53,7 +53,7 @@ The primary audience is senior/lead data engineering, analytics engineering, and
 - Education: include by default. Publications: include when relevant.
 - The renderer does not automatically enforce PDF page count. When possible, inspect the LibreOffice-exported PDF for page count and stranded headings/one-bullet positions.
 
-## Output schema: match `render_resume.py` exactly
+## Output schema: match `job_miner/cli/render.py` exactly
 ```json
 {
   "name": "Fausto Lopez",
@@ -92,11 +92,11 @@ All displayed IDs above are *examples only*; select based on the actual job desc
 10. If tools can run the renderer, generate a test DOCX and inspect exported PDF page count; if not, clearly say layout hasn't been checked.
 
 ## Example user request
-"Use RESUME_TAILORING.md and master_accomplishments.yaml to tailor my resume to the job description below. Generate a downloadable `<company>_<role>_selection.json` compatible with render_resume.py. Keep factual claims traceable to the YAML. Give a short match rationale and list any notable gaps. Job description: [PASTE FULL POSTING]"
+"Use RESUME_TAILORING.md and master_accomplishments.yaml to tailor my resume to the job description below. Generate a downloadable `<company>_<role>_selection.json` compatible with job_miner/resumes/render.py. Keep factual claims traceable to the YAML. Give a short match rationale and list any notable gaps. Job description: [PASTE FULL POSTING]"
 
 ## Render command
 ```bash
-python render_resume.py \
+python -m job_miner.cli.render \
   --inventory master_accomplishments.yaml \
   --selection generated_selections/company_role_selection.json \
   --template templates/resume-template.docx \
@@ -118,4 +118,4 @@ python render_resume.py \
 - Preserve factual scope, technologies, ownership, metrics, and outcomes. Do not invent EHR, HL7/FHIR, Java/Scala, Kafka, or other experience simply because a posting names it.
 - Prefer the original bullet if a rewrite adds no value. Don't combine unrelated accomplishments into misleading claims.
 - List unsupported requirements separately as gaps.
-- The mode guides the AI only; `render_resume.py` renders supplied overrides and does not generate prose itself. Confirm the local renderer implements `bullet_overrides` before depending on them.
+- The mode guides the AI only; `job_miner/cli/render.py` renders supplied overrides and does not generate prose itself. Confirm the local renderer implements `bullet_overrides` before depending on them.

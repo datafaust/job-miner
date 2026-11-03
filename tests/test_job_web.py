@@ -11,13 +11,13 @@ from uuid import uuid4
 
 import yaml
 from docx import Document
-import render_resume
-import job_web
+import job_miner.resumes.render as render_resume
+import job_miner.web.app as job_web
 from job_tools import job_history
 from job_tools import manual_jobs
 from job_tools import prospects
 from job_tools import resume_web_tasks as tasks
-from job_web import app
+from job_miner.web.app import app
 
 REAL_AVAILABLE_MODELS = job_web._available_models
 
@@ -279,6 +279,9 @@ class JobWebTests(unittest.TestCase):
         self.assertEqual(started.status_code, 302)
         self.assertEqual(repeated.status_code, 302)
         launch.assert_called_once()
+        self.assertEqual(launch.call_args.args[0][1:3],
+                         ["-m", "job_miner.workers.resume"])
+        self.assertEqual(launch.call_args.kwargs["cwd"], job_web.PROJECT_DIR)
         task_id = started.location.rsplit("/", 1)[-1]
         status = tasks.read_status(tasks.TASK_ROOT / task_id)
         self.assertEqual(status["job_id"], key)
@@ -336,7 +339,7 @@ class JobWebTests(unittest.TestCase):
         token = job_web.confirmation_signer.dumps({"render_job": key})
         route = f"/resume/{task_id}/render"
         self.assertEqual(self.client.post(route).status_code, 400)
-        with patch.object(render_resume, "__file__", str(self.root / "render_resume.py")):
+        with patch.object(render_resume, "PROJECT_DIR", self.root):
             response = self.client.post(route, data={"token": token})
             self.assertEqual(response.status_code, 200)
             self.assertIn("attachment;", response.headers["Content-Disposition"])
@@ -396,7 +399,7 @@ class JobWebTests(unittest.TestCase):
         self.assertIn(b"Generating selection", running_page.data)
         self.assertIn(b"Elapsed:", running_page.data)
         token = job_web.confirmation_signer.dumps({"cancel": task_id})
-        process = Mock(returncode=0, stdout=f"python resume_web_worker.py {task_dir}")
+        process = Mock(returncode=0, stdout=f"python -m job_miner.workers.resume {task_dir}")
         with patch.object(job_web.subprocess, "run", return_value=process), patch.object(job_web.os, "kill") as kill:
             response = self.client.post(f"/resume/{task_id}/cancel", data={"token": token})
         self.assertEqual(response.status_code, 302)

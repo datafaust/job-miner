@@ -1,11 +1,12 @@
 """Browser search validation and enforced worker command, without live searches."""
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-import job_web
-import search_web_worker
+import job_miner.web.app as job_web
+import job_miner.workers.search as search_web_worker
 from job_tools import search_web_tasks as tasks
 
 
@@ -26,7 +27,7 @@ class SearchWebTests(unittest.TestCase):
         return self.client.post('/search/start', data={
             'token': self.token, 'keywords': 'data analyst', 'location': 'nyc', **values})
 
-    @patch('job_web.subprocess.Popen')
+    @patch('job_miner.web.app.subprocess.Popen')
     def test_validation_and_duplicate_submission(self, popen):
         self.assertEqual(self.client.get('/search/new').status_code, 200)
         for values in ({'keywords': ' '}, {'location': ''}, {'location': 'Boston'},
@@ -38,9 +39,12 @@ class SearchWebTests(unittest.TestCase):
         self.assertEqual(first.status_code, 302)
         self.assertEqual(first.location, second.location)
         popen.assert_called_once()
+        self.assertEqual(popen.call_args.args[0][:3],
+                         [sys.executable, "-m", "job_miner.workers.search"])
+        self.assertEqual(popen.call_args.kwargs["cwd"], job_web.PROJECT_DIR)
         self.assertIn(b'Search queued', self.client.get(first.location).data)
 
-    @patch('job_web.subprocess.Popen', side_effect=OSError('cannot start'))
+    @patch('job_miner.web.app.subprocess.Popen', side_effect=OSError('cannot start'))
     def test_launch_failure_is_visible(self, popen):
         response = self.start()
         self.assertIn(b'Search failed', self.client.get(response.location).data)
@@ -51,9 +55,12 @@ class SearchWebTests(unittest.TestCase):
         for code, expected in ((0, 'completed'), (1, 'failed')):
             tasks.write_status(task_dir, dict(task_id=self.task_id, keywords='--model anything',
                                              location='remote', state='queued', created_at=tasks.now_utc()))
-            with patch('search_web_worker.subprocess.run', return_value=Mock(returncode=code)) as run:
+            with patch('job_miner.workers.search.subprocess.run', return_value=Mock(returncode=code)) as run:
                 search_web_worker.run(task_dir)
             command = run.call_args.args[0]
+            self.assertEqual(command[:4],
+                             [sys.executable, "-u", "-m", "job_miner.cli.search"])
+            self.assertEqual(run.call_args.kwargs["cwd"], job_web.PROJECT_DIR)
             self.assertIn('--no-summary', command)
             self.assertIn('--keywords=--model anything', command)
             self.assertEqual(tasks.read_status(task_dir)['state'], expected)

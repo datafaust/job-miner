@@ -6,9 +6,10 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
+from job_miner.paths import PROJECT_DIR
 
 
-HISTORY_DB_PATH = Path(__file__).resolve().parent.parent / "job_history.sqlite3"
+HISTORY_DB_PATH = PROJECT_DIR / "job_history.sqlite3"
 IDEALIST_ID = re.compile(r"^([0-9a-f]{32})(?:-|$)", re.IGNORECASE)
 URL_IN_TEXT = re.compile(r"https?://[^\s\"'<>}]+")
 

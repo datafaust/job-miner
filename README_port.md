@@ -85,7 +85,7 @@ Your original accomplishment inventory remains unchanged during tailoring.
 
 In your ChatGPT Project, prompt:
 
-> Using `RESUME_TAILORING.md` and `master_accomplishments.yaml`, tailor my resume to the following job description. Use `bullet_rewrite_mode=light` and generate a downloadable `selection.json` compatible with `render_resume.py`.
+> Using `RESUME_TAILORING.md` and `master_accomplishments.yaml`, tailor my resume to the following job description. Use `bullet_rewrite_mode=light` and generate a downloadable `selection.json` compatible with `job_miner/cli/render.py`.
 >
 > [PASTE JOB DESCRIPTION]
 
@@ -106,7 +106,7 @@ Supported bullet rewriting modes:
 Run:
 
 ```bash
-python render_resume.py \
+python -m job_miner.cli.render \
   --inventory master_accomplishments.yaml \
   --selection generated_selections/selection.json \
   --template templates/resume-template.docx \
@@ -153,7 +153,7 @@ The validation score is an editorial assessment, **not an actual ATS score or pr
 | `RESUME_VALIDATION.md` | Instructions for resume evaluation |
 | `templates/` | Directory for reusable DOCX formatting templates |
 | `templates/resume-template.docx` | Default resume formatting template |
-| `render_resume.py` | Python resume generator |
+| `job_miner/cli/render.py` | Python resume generator |
 | `generated_selections/example_selection.json` | Reference JSON structure for selections |
 | `generated_selections/` | Local directory for downloaded job-specific selection JSON files |
 | `generated_resumes/` | Directory created by the renderer for generated DOCX files |

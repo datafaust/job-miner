@@ -5,8 +5,7 @@ import sys
 from pathlib import Path
 
 from job_tools import search_web_tasks as tasks
-
-PROJECT_DIR = Path(__file__).resolve().parent
+from job_miner.paths import PROJECT_DIR
 
 
 def run(task_dir):
@@ -20,7 +19,7 @@ def run(task_dir):
             tasks.write_status(task_dir, status)
             with (task_dir / "search.log").open("w", encoding="utf-8") as log:
                 result = subprocess.run(
-                    [sys.executable, "-u", str(PROJECT_DIR / "main.py"),
+                    [sys.executable, "-u", "-m", "job_miner.cli.search",
                      "--no-summary", "--keywords=" + status["keywords"],
                      "--location=" + status["location"]],
                     cwd=PROJECT_DIR, stdin=subprocess.DEVNULL,

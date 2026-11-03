@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Generate a job-specific selection JSON with a local CrewAI/Ollama agent."""
 
-import argparse
 import hashlib
 import json
 import re
@@ -10,15 +9,14 @@ from pathlib import Path
 
 import yaml
 
-from job_tools.resume_inputs import load_posting, load_saved_posting
 from job_tools.resume_selection import (
     OLLAMA_CONTEXT_TOKENS, OLLAMA_NUM_PREDICT, OLLAMA_TIMEOUT_SECONDS,
     parse_selection, run_selection_agent, validate_selection,
 )
 from job_tools.resume_validation import SelectionValidationError, build_evidence_report, evidence_markdown
+from job_miner.paths import PROJECT_DIR
 
 
-PROJECT_DIR = Path(__file__).resolve().parent
 PROMPT_PATH = PROJECT_DIR / "RESUME_SELECTION_PROMPT.md"
 INVENTORY_PATH = PROJECT_DIR / "master_accomplishments.yaml"
 PROMPT_VERSION = "resume-selection-v1"
@@ -169,40 +167,3 @@ def generate_selection(run_dir, *, selection_dir=PROJECT_DIR / "generated_select
             json.dumps(validation, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-
-
-def main(argv=None):
-    parser = argparse.ArgumentParser(description="Generate a resume selection JSON for one job posting.")
-    source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--job-id", help="Stable ID from job history, e.g. greenhouse:8172487")
-    source.add_argument("--posting-file", type=Path, help="Local .json or .txt job posting")
-    parser.add_argument("--job-url", help="Source URL for a local posting without one")
-    parser.add_argument("--job-title", help="Title override for a local posting")
-    parser.add_argument("--model", default="openhermes", help="Ollama model for selection (default: openhermes)")
-    parser.add_argument("--rewrite-mode", choices=("none", "light", "targeted"), default="light")
-    parser.add_argument("--inventory", type=Path, default=INVENTORY_PATH)
-    parser.add_argument("--output-dir", type=Path, default=PROJECT_DIR / "generated_resume_runs")
-    parser.add_argument("--selection-dir", type=Path, default=PROJECT_DIR / "generated_selections")
-    args = parser.parse_args(argv)
-    if args.job_id and (args.job_url or args.job_title):
-        parser.error("--job-url and --job-title apply only to --posting-file")
-    try:
-        posting = (load_saved_posting(args.job_id) if args.job_id else
-                   load_posting(args.posting_file, source_url=args.job_url, source_title=args.job_title))
-        run_dir = prepare_run(posting, model=args.model, rewrite_mode=args.rewrite_mode,
-                              inventory_path=args.inventory, output_dir=args.output_dir)
-    except (OSError, ValueError, json.JSONDecodeError, UnicodeError) as error:
-        parser.error(str(error))
-    print(f"Prepared resume input: {run_dir}", flush=True)
-    try:
-        selection_path = generate_selection(run_dir, selection_dir=args.selection_dir)
-    except Exception as error:
-        parser.exit(1, f"Selection generation failed; see {run_dir}: {type(error).__name__}: {error}\n")
-    print(f"Wrote selection: {selection_path}")
-    print(f"Evidence review: {run_dir / 'evidence_report.md'}")
-    print("Review the selection and evidence report before rendering a resume.")
-    return selection_path
-
-
-if __name__ == "__main__":
-    main()

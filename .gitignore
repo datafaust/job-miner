@@ -15,21 +15,21 @@ env/
 .coverage
 htmlcov/
 
-# Generated job search and scraping results
-jobs/*
-!jobs/.gitkeep
-output.json
-job_history.sqlite3*
+# Generated job search and scraping results (kept at the repository root)
+/jobs/*
+!/jobs/.gitkeep
+/output.json
+/job_history.sqlite3*
 JOB_*.txt
 JOB_greenhouse_*.json
 JOB_remoteok_*.json
-crewai_log.txt
-summary_attempts.jsonl
-generated_resume_runs/
-generated_resume_requests/
-generated_search_requests/
-generated_selections/
-generated_resumes/
+/crewai_log.txt
+/summary_attempts.jsonl
+/generated_resume_runs/
+/generated_resume_requests/
+/generated_search_requests/
+/generated_selections/
+/generated_resumes/
 prospective_jobs.json
 credentials.json
 .google_drive_token.json

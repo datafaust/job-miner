@@ -14,9 +14,10 @@ from job_tools.location import greenhouse_matches_location
 from job_tools.prospects import extract_and_save
 from job_tools.relevance import is_relevant, role_profile, title_strength
 from job_tools.workflow_config import LIMITS
+from job_miner.paths import PROJECT_DIR
 
 
-BOARD_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "ashby_boards.json"
+BOARD_CONFIG_PATH = PROJECT_DIR / "config" / "ashby_boards.json"
 MAX_ASHBY_SUMMARIES = LIMITS.ashby_jobs_per_run
 USER_AGENT = "JobMiner/1.0 (personal job search)"
 STOP_WORDS = {"a", "an", "and", "at", "for", "in", "job", "jobs", "of", "or",

@@ -32,28 +32,46 @@ Activate the environment with `source .venv/bin/activate` and run commands from 
 Start the web app, then open <http://127.0.0.1:5055> to search, browse jobs, and generate resumes:
 
 ```sh
-python job_web.py
+python -m job_miner.web.app
 ```
 
 Search from the terminal without AI (no Ollama required):
 
 ```sh
-python main.py --keywords "data analyst" --location nyc --no-summary
+python -m job_miner.cli.search --keywords "data analyst" --location nyc --no-summary
 ```
 
-For an interactive search with AI summaries, run `python main.py`. Use `--model MODEL` to choose another installed Ollama model.
+For an interactive search with AI summaries, run `python -m job_miner.cli.search`. Use `--model MODEL` to choose another installed Ollama model.
 
 Grade saved jobs:
 
 ```sh
-python fit_grader.py --all --model openhermes
+python -m job_miner.cli.grade --all --model openhermes
 ```
 
 Generate a resume selection using the Job ID from a saved posting's detail page, review the output, then render it:
 
 ```sh
-python resume_cli.py --job-id <JOB_ID> --model openhermes --rewrite-mode none
-python render_resume.py --selection <SELECTION_JSON> --template templates/resume-template.docx --output generated_resumes/resume.docx
+python -m job_miner.cli.resume --job-id <JOB_ID> --model openhermes --rewrite-mode none
+python -m job_miner.cli.render --selection <SELECTION_JSON> --template templates/resume-template.docx --output generated_resumes/resume.docx
 ```
 
 See [the reference](docs/REFERENCE.md) for configuration, exports, storage, troubleshooting, and workflow details.
+
+## Code layout
+
+`job_miner/` contains command entry points (`cli/`), search and resume workflows
+(`search/`, `resumes/`), the Flask app (`web/`), and background workers (`workers/`).
+`job_tools/` holds the existing board integrations, storage, and validation helpers;
+`examples/` holds standalone examples. Shared repository paths live in
+`job_miner/paths.py`. Templates, static assets, configuration, and generated data
+remain in the repository root.
+
+The former root Python scripts have moved. Use the `python -m` commands above
+from the repository root; update any saved shell commands or scheduled jobs.
+
+Run the automated tests without live job-board or Ollama calls:
+
+```sh
+python -m unittest discover -s tests
+```

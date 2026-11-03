@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from job_tools.resume_selection import parse_selection, validate_selection
 from job_tools.resume_validation import build_evidence_report, validation_errors
-from resume_cli import generate_selection, prepare_run
+from job_miner.resumes.workflow import generate_selection, prepare_run
 
 
 INVENTORY = {
@@ -108,7 +108,7 @@ class ResumeSelectionTests(unittest.TestCase):
                                   inventory_path=inventory, prompt_path=policy,
                                   output_dir=root / "runs")
             stages = []
-            with patch("resume_cli.run_selection_agent", return_value=json.dumps(SELECTION)) as agent:
+            with patch("job_miner.resumes.workflow.run_selection_agent", return_value=json.dumps(SELECTION)) as agent:
                 selection_path = generate_selection(
                     run_dir, selection_dir=root / "generated_selections", on_progress=stages.append
                 )
@@ -136,7 +136,7 @@ class ResumeSelectionTests(unittest.TestCase):
             run_dir = prepare_run(posting, model="qwen2.5:7b", rewrite_mode="light",
                                   inventory_path=root / "inventory.yaml", prompt_path=root / "policy.md",
                                   output_dir=root / "runs")
-            with patch("resume_cli.run_selection_agent", return_value="not JSON") as agent:
+            with patch("job_miner.resumes.workflow.run_selection_agent", return_value="not JSON") as agent:
                 with self.assertRaises(json.JSONDecodeError):
                     generate_selection(run_dir, selection_dir=root / "generated_selections")
             self.assertEqual(agent.call_count, 2)
@@ -162,7 +162,7 @@ class ResumeSelectionTests(unittest.TestCase):
             bad["summary"]["text"] = "10+ years of experience"
             bad["experience"][0]["dates"] = "2020-2025"
             raw = json.dumps(bad)
-            with patch("resume_cli.run_selection_agent", return_value=raw):
+            with patch("job_miner.resumes.workflow.run_selection_agent", return_value=raw):
                 with self.assertRaises(ValueError):
                     generate_selection(run_dir, selection_dir=root / "generated_selections")
             report = json.loads((run_dir / "validation_report.json").read_text())
@@ -186,7 +186,7 @@ class ResumeSelectionTests(unittest.TestCase):
                 run_dir = prepare_run(posting, model="qwen3:14b", rewrite_mode="none",
                                       inventory_path=root / "inventory.yaml", prompt_path=root / "policy.md",
                                       output_dir=root / "runs")
-                with patch("resume_cli.run_selection_agent",
+                with patch("job_miner.resumes.workflow.run_selection_agent",
                            side_effect=[rejected, json.dumps(SELECTION)]) as agent:
                     stages = []
                     result = generate_selection(
@@ -206,10 +206,10 @@ class ResumeSelectionTests(unittest.TestCase):
                 self.assertEqual(json.loads((run_dir / "manifest.json").read_text())["attempts"], 2)
 
     def test_renderer_rejects_invalid_selection_before_opening_template(self):
-        from render_resume import produce
+        from job_miner.resumes.render import produce
         bad = json.loads(json.dumps(SELECTION))
         bad["experience"][0]["bullets"][0] = "BAO-999"
-        with patch("render_resume.Document") as document:
+        with patch("job_miner.resumes.render.Document") as document:
             with self.assertRaises(ValueError):
                 produce(INVENTORY, bad, "unused.docx", "unused.docx")
         document.assert_not_called()

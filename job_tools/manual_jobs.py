@@ -6,9 +6,10 @@ import re
 from pathlib import Path
 
 from job_tools import job_history
+from job_miner.paths import PROJECT_DIR
 
 
-JOBS_DIR = Path(__file__).resolve().parent.parent / "jobs"
+JOBS_DIR = PROJECT_DIR / "jobs"
 FIELDS = ("job_title", "company", "salary_range", "posted_at", "posted_text", "remote_status", "location")
 SALARY = re.compile(
     r"(?:USD\s*)?\$\s*\d[\d,]*(?:\.\d+)?\s*(?:-|–|—|to)\s*"

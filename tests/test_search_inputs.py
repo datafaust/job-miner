@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-from main import resolve_search_inputs
+from job_miner.search.workflow import resolve_search_inputs
 
 
 class SearchInputTests(unittest.TestCase):
@@ -43,7 +43,7 @@ class SearchInputTests(unittest.TestCase):
         env["JOB_SEARCH_KEYWORDS"] = ""
         env["JOB_SEARCH_LOCATION"] = ""
         result = subprocess.run(
-            [sys.executable, "main.py", "--keywords", "", "--location", ""],
+            [sys.executable, "-m", "job_miner.cli.search", "--keywords", "", "--location", ""],
             cwd=Path(__file__).resolve().parents[1], env=env, input="", text=True,
             capture_output=True, timeout=15,
         )

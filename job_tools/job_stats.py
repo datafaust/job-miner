@@ -6,9 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from job_tools import job_history
+from job_miner.paths import PROJECT_DIR
 
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
 SOURCES = ("Greenhouse", "Lever", "Ashby", "Adzuna", "Remote OK", "Remotive", "Idealist", "Other")
 
 
