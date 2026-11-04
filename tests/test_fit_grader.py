@@ -1,6 +1,7 @@
 """Exercise fit grading without requiring a live Ollama model."""
 
 import hashlib
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -80,6 +81,16 @@ class FitGraderTests(unittest.TestCase):
         schema = fit_grader.grade_schema({"BAO-001": "Built a platform"})
         allowed = schema["properties"]["requirements"]["items"]["properties"]["evidence_ids"]["items"]["enum"]
         self.assertEqual(allowed, ["BAO-001"])
+
+    def test_request_unloads_model_even_when_grade_is_invalid(self):
+        # Ollama must receive the unload policy before local parsing/validation:
+        # a malformed grade must not leave the runner's cache accumulating.
+        with patch.object(fit_grader.requests, "post") as post:
+            post.return_value.json.return_value = {"response": "invalid JSON"}
+            with self.assertRaises(json.JSONDecodeError):
+                fit_grader.request_grade("posting", "local-model", {"BAO-001": "Evidence"})
+            self.assertEqual(post.call_args.kwargs["json"]["keep_alive"], 0)
+            self.assertFalse(post.call_args.kwargs["json"]["stream"])
 
     def test_full_match_requires_named_tool_in_cited_evidence(self):
         grade = self.model_grade()

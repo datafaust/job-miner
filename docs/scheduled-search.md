@@ -63,3 +63,8 @@ running and the host awake. Jobs with unchanged postings, accomplishments, promp
 version, and model are skipped. Individual failures are logged and the batch
 continues. `flock` prevents overlapping scheduled grading runs. Output appends to
 `generated_search_requests/grading-cron.log`.
+
+Each grading request sets Ollama's `keep_alive` to `0`, unloading the model
+after the response so its prompt cache cannot accumulate across jobs. This adds
+model loading time for each job. It reduces memory buildup between jobs but
+does not guarantee that a single inference will fit in available RAM.

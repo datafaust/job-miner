@@ -142,6 +142,9 @@ def request_grade(prompt, model, evidence):
     response = requests.post(
         OLLAMA_URL,
         json={"model": model, "prompt": prompt, "format": grade_schema(evidence), "stream": False,
+              # Release the runner and its growing prompt cache between jobs.
+              # Sleeping or collecting Python garbage cannot free Ollama's RAM.
+              "keep_alive": 0,
               "think": True,
               "options": {"temperature": 0, "num_ctx": 16384, "num_predict": 8192}},
         timeout=1200,
