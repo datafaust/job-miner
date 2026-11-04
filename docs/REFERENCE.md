@@ -17,6 +17,7 @@ Open `http://127.0.0.1:5055`. Use `--port` to change the port; Ctrl+C stops the 
 - Search titles/companies, filter source or work arrangement, and browse 25 jobs per page. Click a row for the saved posting, source details, and AI result.
 - **Posted** shows the source date or saved relative label (e.g. “Published 2 days ago,” which does not update). **Saved (UTC)** shows the collection date. **Resume Generated** shows ✓ after a successful render.
 - The trash icon asks for confirmation before hiding a job. Its database record and artifacts remain, so later searches still skip it. Hidden jobs are excluded from list counts; there is currently no restore control.
+- On a job's detail page, **Application status** lets you choose an application date (today by default) and **Mark as applied**. You can update the date or **Mark as not applied** to undo it. Dates are saved locally and must be on or before today. The saved-jobs table shows the status/date, supports sorting by **Application**, and filters by **All jobs**, **Not applied**, or **Applied**. Application tracking does not require Ollama.
 - To create a resume, start Ollama, open a posting, choose an installed text-generation model and **Bullet mode**, then confirm. **No changes** (default) preserves bullets; **Light edits** adjusts phrasing; **Targeted edits** allows more restructuring while preserving facts.
 - The selection status page refreshes every five seconds and shows progress, errors, and **Cancel selection**. Stopping the frontend does not stop its separate selection worker. Recent attempts appear on the posting page.
 - After validation, review the selection/evidence files at the displayed paths; browser editing is not implemented. Click **Generate resume** on the posting or successful selection page to render and download a Word document using `templates/resume-template.docx`. Rendering needs no model call.
@@ -134,7 +135,28 @@ python -m job_tools.drive_export
 
 The first upload opens a browser for Google sign-in and saves the OAuth token locally for later runs. If no file ID is configured, or Google returns 404 for the configured ID, it creates a Google Sheet named **Job Miner** and saves its ID to `.env`. The exporter creates the **Prospective jobs** tab if missing. Later exports keep existing rows and add only jobs whose stable job key or URL is not already present. Existing job rows, manual notes, and other tabs remain in place; an empty JSON export does not clear the sheet. For an Excel `.xlsx` file, the exporter downloads and reuploads the workbook only when it has new jobs or needs to create the tab. Your JSON export and Drive upload are separate commands, so rerun both to publish new jobs. Use the same Google account that owns or can edit the target file.
 
+Scheduled grading uses bounded batches and a cooldown, with optional
+`--monitor-gpu` usage logs (currently enabled in cron);
+see [scheduled-search.md](scheduled-search.md#paced-fit-grading). Manual commands
+below bypass those controls.
+
 ### Manual job fit grading
+
+On a job detail page, choose **Run fit grade** and confirm the popup. A detached
+worker grades that one job with `qwen3.5-27b-16k:latest`; this explicitly reruns
+inference even if the stored grade is unchanged. A successful grade replaces the
+previous assessment; failures preserve it. The progress page refreshes every five
+seconds and links back to the posting with your list filters intact. Closing the
+page does not cancel the request. Duplicate submissions reuse the same request,
+and a job with a queued/running request shows **View grading progress**.
+
+Browser requests share the scheduled grader's lock and persisted cooldown, waiting
+for any active grading/cooldown before starting and reserving a ten-minute
+cooldown afterward. They do not change power or temperature limits. Browser
+requests currently do not enable GPU sampling; `--monitor-gpu` remains an option
+for the scheduled batch CLI. Request status and worker output are stored under
+`generated_search_requests/fit_grades/<request-id>/`.
+
 
 After scraping jobs, run the fit grader separately with an installed local Ollama model:
 

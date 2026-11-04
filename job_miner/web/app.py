@@ -1,6 +1,7 @@
 """Local browser for saved jobs and reviewed resume-selection requests."""
 
 import argparse
+import fcntl
 import json
 import math
 import os
@@ -10,7 +11,7 @@ import signal
 import sqlite3
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -23,6 +24,7 @@ from job_tools import search_web_tasks as searches
 from job_tools.location import normalize_search_location
 from job_tools import job_history, search_runs
 from job_tools import manual_jobs
+from job_tools import grade_web_tasks as grading
 from job_tools import resume_web_tasks as tasks
 from job_tools.resume_inputs import load_saved_posting
 from job_miner.resumes.render import produce
@@ -68,6 +70,7 @@ def _job(job_id):
 def _detail_url(job_id, values):
     return url_for(
         "job_detail", job_id=job_id,
+        application=values.get("application", ""), availability=values.get("availability", ""),
         q=values.get("q", ""), source=values.get("source", ""),
         remote=values.get("remote", ""), page=values.get("page", "1"),
         sort=values.get("sort", ""), order=values.get("order", ""),
@@ -93,7 +96,7 @@ def _saved_jobs():
     with job_history._database() as connection:
         connection.row_factory = sqlite3.Row
         rows = connection.execute(
-            """SELECT h.job_key, h.url, h.processed_at, h.hidden_at,
+            """SELECT h.job_key, h.url, h.processed_at, h.hidden_at, h.applied_on,
                       COALESCE(a.availability, 'unchecked') AS availability,
                       a.checked_at, a.last_seen_open, a.evidence AS availability_evidence,
                       p.job_title, p.company, p.location, p.remote_status,
@@ -138,11 +141,11 @@ def _list_state():
     except ValueError:
         page = 1
     sort = request.args.get("sort", "fit")
-    if sort not in {"title", "company", "source", "location", "remote", "salary", "posted", "saved", "fit", "resume"}:
+    if sort not in {"title", "company", "source", "location", "remote", "salary", "posted", "saved", "fit", "resume", "applied"}:
         sort = "fit"
-    order = request.args.get("order", "desc" if sort in {"posted", "saved", "fit"} else "asc")
+    order = request.args.get("order", "desc" if sort in {"posted", "saved", "fit", "applied"} else "asc")
     if order not in {"asc", "desc"}:
-        order = "desc" if sort in {"posted", "saved", "fit"} else "asc"
+        order = "desc" if sort in {"posted", "saved", "fit", "applied"} else "asc"
     return query, source, remote, page, sort, order
 
 
@@ -164,6 +167,8 @@ def _sort_jobs(jobs, sort, order, resume_job_ids):
         key = lambda job: job["job_key"] in resume_job_ids
     elif sort == "fit":
         key = lambda job: job["fit_score"]
+    elif sort == "applied":
+        key = lambda job: _timestamp(job["applied_on"])
     elif sort in {"posted", "saved"}:
         field = "posted_at" if sort == "posted" else "processed_at"
         key = lambda job: _timestamp(job[field])
@@ -188,6 +193,9 @@ def job_list(add_error=None, add_url="", add_posting_text=""):
     all_jobs = [job for job in _saved_jobs() if job["hidden_at"] is None]
     added_job = next((job for job in all_jobs if job["job_key"] == request.args.get("added")), None)
     query, source, remote, page, sort, order = _list_state()
+    application = request.args.get("application", "")
+    if application not in {"applied", "unapplied"}:
+        application = ""
     availability = request.args.get("availability", "")
     if availability not in {"hide_closed", "open", "possibly_closed", "closed", "unknown", "unchecked"}:
         availability = ""
@@ -203,6 +211,7 @@ def job_list(add_error=None, add_url="", add_posting_text=""):
             f"{job['title']} {job['company'] or ''}".casefold())
         and (not source or job["source"] == source)
         and (not remote or job["remote_status"] == remote)
+        and (not application or (bool(job["applied_on"]) == (application == "applied")))
         and (not availability or
              (availability == "hide_closed" and job["availability"] != "closed") or
              job["availability"] == availability)
@@ -217,7 +226,7 @@ def job_list(add_error=None, add_url="", add_posting_text=""):
         "job_list.html", jobs=visible_jobs, last_run=last_run, search_running=search_running,
         hide_tokens={job["job_key"]: confirmation_signer.dumps({"hide_job": job["job_key"]})
                      for job in visible_jobs},
-        total=len(filtered), saved_total=len(all_jobs), sources=sources, availability=availability,
+        total=len(filtered), saved_total=len(all_jobs), sources=sources, availability=availability, application=application,
         q=query, source=source, remote=remote, page=page, sort=sort, order=order,
         page_count=page_count,
         resume_job_ids=resume_job_ids,
@@ -319,10 +328,63 @@ def job_hide(job_id):
         if result.rowcount == 0:
             abort(404)
     return redirect(url_for(
-        "job_list", availability=request.form.get("availability", ""), q=request.form.get("q", ""), source=request.form.get("source", ""),
+        "job_list", application=request.form.get("application", ""), availability=request.form.get("availability", ""), q=request.form.get("q", ""), source=request.form.get("source", ""),
         remote=request.form.get("remote", ""), page=request.form.get("page", "1"),
         sort=request.form.get("sort", ""), order=request.form.get("order", ""),
     ))
+
+
+@app.post("/jobs/<path:job_id>/application")
+def job_application(job_id):
+    try:
+        data = confirmation_signer.loads(request.form.get("token", ""), max_age=3600)
+        if data.get("application_job") != job_id:
+            abort(400)
+    except (BadSignature, SignatureExpired):
+        abort(400, "Reload the posting and try again.")
+    status = request.form.get("status", "")
+    if status not in {"applied", "unapplied"}:
+        abort(400, "Choose a valid application status.")
+    applied_on = None
+    if status == "applied":
+        value = request.form.get("applied_on", "")
+        try:
+            applied_date = date.fromisoformat(value)
+            if applied_date.isoformat() != value or applied_date > date.today():
+                raise ValueError
+        except ValueError:
+            abort(400, "Choose an application date on or before today.")
+        applied_on = applied_date.isoformat()
+    with job_history._database() as connection:
+        result = connection.execute("UPDATE processed_jobs SET applied_on = ? WHERE job_key = ?",
+                                    (applied_on, job_id))
+        if result.rowcount == 0:
+            abort(404)
+    return redirect(_detail_url(job_id, request.form))
+
+
+@app.post("/jobs/<path:job_id>/company")
+def job_company(job_id):
+    try:
+        data = confirmation_signer.loads(request.form.get("token", ""), max_age=3600)
+        if data.get("company_job") != job_id:
+            abort(400)
+    except (BadSignature, SignatureExpired):
+        abort(400, "Reload the posting and try again.")
+    job = _job(job_id)
+    if job is None:
+        abort(404)
+    company = request.form.get("company", "").strip()
+    if not company or len(company) > 300:
+        abort(400, "Enter a company name of 1 to 300 characters.")
+    with job_history._database() as connection:
+        connection.execute(
+            """INSERT INTO prospective_jobs (job_key, job_title, company, remote_status)
+               VALUES (?, ?, ?, 'unknown')
+               ON CONFLICT(job_key) DO UPDATE SET company = excluded.company""",
+            (job_id, job["title"], company),
+        )
+    return redirect(_detail_url(job_id, request.form))
 
 
 @app.get("/jobs/<path:job_id>")
@@ -338,7 +400,7 @@ def job_detail(job_id):
     else:
         posting_error = None
     query, source, remote, page, sort, order = _list_state()
-    back_url = url_for("job_list", availability=request.args.get("availability", ""), q=query, source=source, remote=remote, page=page, sort=sort, order=order)
+    back_url = url_for("job_list", application=request.args.get("application", ""), availability=request.args.get("availability", ""), q=query, source=source, remote=remote, page=page, sort=sort, order=order)
     models, model_error = _available_models()
     return render_template(
         "job_detail.html", job=job, posting=posting,
@@ -346,8 +408,67 @@ def job_detail(job_id):
         models=models, model_error=model_error,
         recent_attempts=tasks.recent_for_job(job_id),
         render_token=confirmation_signer.dumps({"render_job": job_id}),
+        application_token=confirmation_signer.dumps({"application_job": job_id}),
+        company_token=confirmation_signer.dumps({"company_job": job_id}),
+        application=request.args.get("application", ""), availability=request.args.get("availability", ""),
+        today=date.today().isoformat(),
+        grade_model=grading.DEFAULT_MODEL, grade_task=grading.latest_for_job(job_id),
+        grade_token=confirmation_signer.dumps({"grade_job": job_id, "task_id": str(uuid4())}),
         q=query, source=source, remote=remote, page=page, sort=sort, order=order,
     )
+
+
+@app.post("/jobs/<path:job_id>/grade")
+def grade_start(job_id):
+    try:
+        data = confirmation_signer.loads(request.form.get("token", ""), max_age=3600)
+        if data.get("grade_job") != job_id:
+            abort(400)
+        task_id = str(UUID(data["task_id"]))
+    except (BadSignature, SignatureExpired, KeyError, ValueError, TypeError):
+        abort(400, "Reload the posting and try again.")
+    if _job(job_id) is None:
+        abort(404)
+    try:
+        load_saved_posting(job_id)
+    except (OSError, ValueError, KeyError, UnicodeError):
+        abort(400, "The saved posting could not be opened for grading.")
+    grading.TASK_ROOT.mkdir(parents=True, exist_ok=True)
+    with (grading.TASK_ROOT / "requests.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        task_dir = grading.TASK_ROOT / task_id
+        if task_dir.exists():
+            return redirect(url_for("grade_status", task_id=task_id))
+        previous = grading.latest_for_job(job_id)
+        if previous and previous["state"] in grading.ACTIVE_STATES:
+            return redirect(url_for("grade_status", task_id=previous["task_id"]))
+        task_dir.mkdir()
+        status = dict(task_id=task_id, job_id=job_id, model=grading.DEFAULT_MODEL,
+                      detail_url=_detail_url(job_id, request.form), state="queued",
+                      created_at=grading.now_utc(),
+                      message="Waiting for any active fit grading and GPU cooldown to finish.")
+        grading.write_status(task_dir, status)
+        try:
+            with (task_dir / "worker.log").open("w", encoding="utf-8") as log:
+                subprocess.Popen([sys.executable, "-u", "-m", "job_miner.workers.grade", str(task_dir)],
+                    cwd=PROJECT_DIR, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
+                    start_new_session=True)
+        except OSError:
+            status.update(state="failed", finished_at=grading.now_utc(),
+                          message="The grading worker could not start. Please try again.")
+            grading.write_status(task_dir, status)
+    return redirect(url_for("grade_status", task_id=task_id))
+
+
+@app.get("/fit-grade/<task_id>")
+def grade_status(task_id):
+    try:
+        task_id = str(UUID(task_id))
+        status = grading.read_task(grading.TASK_ROOT / task_id)
+    except (ValueError, OSError, KeyError):
+        abort(404)
+    return render_template("fit_grade_status.html", task=status,
+        elapsed=_elapsed_text(status.get("started_at") or status["created_at"], status.get("finished_at")))
 
 
 @app.post("/jobs/<path:job_id>/resume/confirm")

@@ -11,6 +11,7 @@ import requests
 import yaml
 
 from job_tools import job_history
+from job_tools.grade_monitor import record_ollama_metrics
 from job_tools.resume_inputs import load_saved_posting
 from job_miner.paths import PROJECT_DIR
 
@@ -153,6 +154,7 @@ def request_grade(prompt, model, evidence):
     result = response.json()
     if not isinstance(result, dict):
         raise ValueError("Ollama returned an unexpected response")
+    record_ollama_metrics(result)
     if result.get("done_reason") == "length":
         raise ValueError("Ollama stopped before finishing the grade")
     output = result.get("response")

@@ -70,6 +70,24 @@ class JobWebTests(unittest.TestCase):
                 )
         return key
 
+    def test_edit_company_with_and_without_extracted_facts(self):
+        for index, facts in enumerate((True, False)):
+            with self.subTest(facts=facts):
+                key = self.save_idealist(str(index) * 32, "Data Engineer", facts=facts)
+                route = f"/jobs/{key}/company"
+                token = job_web.confirmation_signer.dumps({"company_job": key})
+                self.assertIn(b'Save company', self.client.get(f"/jobs/{key}").data)
+                self.assertEqual(self.client.post(route, data={"company": "New Co"}).status_code, 400)
+                self.assertEqual(self.client.post(route, data={"token": token, "company": "  "}).status_code, 400)
+                response = self.client.post(route, data={"token": token, "company": "  Correct Company  ", "q": "Data"})
+                self.assertEqual(response.status_code, 302)
+                self.assertIn("q=Data", response.location)
+                self.assertIn(b"Correct Company", self.client.get(response.location).data)
+                self.assertIn(b"Correct Company", self.client.get("/").data)
+                with job_history._database() as connection:
+                    row = connection.execute("SELECT company, remote_status FROM prospective_jobs WHERE job_key = ?", (key,)).fetchone()
+                self.assertEqual(row, ("Correct Company", "remote" if facts else "unknown"))
+
     def test_hide_job_preserves_history_and_artifacts(self):
         key = self.save_idealist("a" * 32, "Data Engineer", company="Hidden Company")
         other = self.save_idealist("b" * 32, "Research Analyst")

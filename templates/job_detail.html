@@ -60,6 +60,46 @@
     {% endif %}
   </div>
   <aside class="col-xl-4">
+    <section class="card border-0 shadow-sm mb-4" aria-labelledby="fit-grading-heading">
+      <div class="card-body p-4">
+        <h2 class="h5 mb-2" id="fit-grading-heading">Fit grading</h2>
+        <p class="small text-secondary">Grade this job against your documented experience using {{ grade_model }}.</p>
+        {% if grade_task %}
+        <p class="small"><a href="{{ url_for('grade_status', task_id=grade_task.task_id) }}">Latest run: {{ grade_task.state | title }}</a></p>
+        {% endif %}
+        {% if grade_task and grade_task.state in ('queued', 'running') %}
+        <a class="btn btn-outline-primary w-100" href="{{ url_for('grade_status', task_id=grade_task.task_id) }}">View grading progress</a>
+        {% else %}
+        <form method="post" action="{{ url_for('grade_start', job_id=job.job_key) }}" data-run-fit-grade data-confirm-message="Run a new fit grade for this job using {{ grade_model }}? This may take several minutes and will wait for any active grading and cooldown. A successful result will replace any existing grade.">
+          <input type="hidden" name="token" value="{{ grade_token }}">
+          {% for name, value in [('application', application), ('availability', availability), ('q', q), ('source', source), ('remote', remote), ('page', page), ('sort', sort), ('order', order)] %}
+          <input type="hidden" name="{{ name }}" value="{{ value }}">
+          {% endfor %}
+          <button class="btn btn-primary w-100" type="submit" {% if not posting %}disabled{% endif %}>Run fit grade</button>
+        </form>
+        {% endif %}
+      </div>
+    </section>
+    <section class="card border-0 shadow-sm mb-4" aria-labelledby="application-heading">
+      <div class="card-body p-4">
+        <h2 class="h5 mb-2" id="application-heading">Application status</h2>
+        {% if job.applied_on %}
+        <p><span class="badge text-bg-success">Applied</span> <time datetime="{{ job.applied_on }}">{{ job.applied_on }}</time></p>
+        {% else %}
+        <p class="text-secondary">Not applied</p>
+        {% endif %}
+        <form method="post" action="{{ url_for('job_application', job_id=job.job_key) }}">
+          <input type="hidden" name="token" value="{{ application_token }}">
+          {% for name, value in [('application', application), ('availability', availability), ('q', q), ('source', source), ('remote', remote), ('page', page), ('sort', sort), ('order', order)] %}
+          <input type="hidden" name="{{ name }}" value="{{ value }}">
+          {% endfor %}
+          <label class="form-label" for="applied-on">Application date</label>
+          <input class="form-control mb-3" type="date" id="applied-on" name="applied_on" value="{{ job.applied_on or today }}" max="{{ today }}" required>
+          <button class="btn btn-{{ 'outline-primary' if job.applied_on else 'primary' }}" type="submit" name="status" value="applied">{{ 'Update date' if job.applied_on else 'Mark as applied' }}</button>
+          {% if job.applied_on %}<button class="btn btn-outline-secondary mt-2" type="submit" name="status" value="unapplied" formnovalidate>Mark as not applied</button>{% endif %}
+        </form>
+      </div>
+    </section>
     <div class="card border-0 shadow-sm mb-4">
       <div class="card-body p-4">
         <h2 class="h5 mb-2">Create tailored resume</h2>
@@ -67,6 +107,8 @@
         {% if model_error %}<div class="alert alert-warning small">{{ model_error }}</div>{% endif %}
         {% if not model_error and not models %}<div class="alert alert-warning small">No text-generation models are installed in Ollama.</div>{% endif %}
         <form method="post" action="{{ url_for('resume_confirm', job_id=job.job_key) }}">
+          <input type="hidden" name="application" value="{{ application }}">
+          <input type="hidden" name="availability" value="{{ availability }}">
           <input type="hidden" name="q" value="{{ q }}">
           <input type="hidden" name="source" value="{{ source }}">
           <input type="hidden" name="remote" value="{{ remote }}">
@@ -111,7 +153,17 @@
       <div class="card-body p-4">
         <h2 class="h5 mb-3">Job details</h2>
         <dl class="details-grid mb-0">
-          <dt>Company</dt><dd>{{ job.company or '—' }}</dd>
+          <dt><label for="company-name">Company</label></dt>
+          <dd>
+            <form method="post" action="{{ url_for('job_company', job_id=job.job_key) }}">
+              <input type="hidden" name="token" value="{{ company_token }}">
+              {% for name, value in [('application', application), ('availability', availability), ('q', q), ('source', source), ('remote', remote), ('page', page), ('sort', sort), ('order', order)] %}
+              <input type="hidden" name="{{ name }}" value="{{ value }}">
+              {% endfor %}
+              <input class="form-control mb-2" id="company-name" name="company" value="{{ job.company or '' }}" maxlength="300" required>
+              <button class="btn btn-sm btn-outline-primary" type="submit">Save company</button>
+            </form>
+          </dd>
           <dt>Source</dt><dd>{{ job.source }}</dd>
           <dt>Location</dt><dd>{{ job.location or '—' }}</dd>
           <dt>Work arrangement</dt><dd>{{ job.remote_status | replace('_', ' ') | title }}</dd>

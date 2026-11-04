@@ -1,0 +1,20 @@
+{% extends "job_base.html" %}
+{% block title %}Fit grading{% endblock %}
+{% block head %}{% if task.state in ('queued', 'running') %}<meta http-equiv="refresh" content="5">{% endif %}{% endblock %}
+{% block content %}
+<a class="d-inline-block mb-3" href="{{ task.detail_url }}">← Back to job</a>
+<section class="card border-0 shadow-sm">
+  <div class="card-body p-4">
+    <h1 class="h3">Fit grading: {{ task.state | title }}</h1>
+    <p class="text-secondary">{{ task.model }}{% if elapsed %} · Elapsed {{ elapsed }}{% endif %}</p>
+    <div role="status" aria-live="polite">
+      {% if task.state in ('queued', 'running') %}<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>{% endif %}
+      {{ task.message }}
+    </div>
+    {% if task.state == 'completed' %}<p class="mt-3"><strong>{{ task.score }}/100 · {{ task.tier | title }}</strong></p>{% endif %}
+    {% if task.error %}<p class="mt-3 text-danger">{{ task.error }}</p>{% endif %}
+    {% if task.state in ('queued', 'running') %}<p class="small text-secondary mt-3 mb-0">This page refreshes every five seconds. Grading continues if you close the page.</p>{% endif %}
+    {% if task.state in ('completed', 'failed') %}<a class="btn btn-primary mt-3" href="{{ task.detail_url }}">View job</a>{% endif %}
+  </div>
+</section>
+{% endblock %}

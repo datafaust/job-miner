@@ -10,7 +10,7 @@ function restoreJobListNavigation() {
     }
     const back = document.querySelector("[data-back-to-jobs]");
     const params = new URLSearchParams(window.location.search);
-    if (!back || ["q", "source", "remote", "page", "sort", "order", "availability"].some((key) => params.has(key))) return;
+    if (!back || ["q", "source", "remote", "page", "sort", "order", "availability", "application"].some((key) => params.has(key))) return;
     const saved = sessionStorage.getItem(storageKey);
     if (!saved) return;
     const target = new URL(saved, window.location.origin);
@@ -55,3 +55,16 @@ if (addJobDialog) {
   });
   if (addJobDialog.hasAttribute("data-open-on-load")) addJobDialog.showModal();
 }
+
+// Confirm before queuing GPU work; cancellation never submits the form.
+document.querySelectorAll("form[data-run-fit-grade]").forEach((form) => {
+  form.addEventListener("submit", (event) => {
+    if (!window.confirm(form.dataset.confirmMessage)) {
+      event.preventDefault();
+      return;
+    }
+    const button = form.querySelector('button[type="submit"]');
+    button.disabled = true;
+    button.textContent = "Queuing fit grade…";
+  });
+});
