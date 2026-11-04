@@ -36,11 +36,11 @@ Cron must be running and the host awake at that time. Inspect the schedule with
 
 ## Nightly availability audit
 
-The installed user crontab also checks saved postings daily at 22:30 (10:30 p.m.)
+The installed user crontab also checks saved postings daily at 23:00 (11 p.m.)
 in America/New_York, including daylight saving changes:
 
 ```cron
-30 22 * * * cd /home/fausto/apps/job-miner && /usr/bin/flock -n /home/fausto/apps/job-miner/generated_search_requests/availability.lock /home/fausto/apps/job-miner/.venv/bin/python -u -m job_miner.cli.check_jobs --force >> /home/fausto/apps/job-miner/generated_search_requests/availability-cron.log 2>&1
+0 23 * * * cd /home/fausto/apps/job-miner && /usr/bin/flock -n /home/fausto/apps/job-miner/generated_search_requests/availability.lock /home/fausto/apps/job-miner/.venv/bin/python -u -m job_miner.cli.check_jobs --force >> /home/fausto/apps/job-miner/generated_search_requests/availability-cron.log 2>&1
 ```
 
 `--force` ensures the evening audit runs even if earlier searches checked
@@ -51,11 +51,11 @@ successful observations at least six hours apart before being marked closed.
 
 ## Nightly fit grading
 
-The installed user crontab grades visible saved jobs daily at 23:00 (11 p.m.)
+The installed user crontab grades visible saved jobs daily at 23:45 (11:45 p.m.)
 in America/New_York, including daylight saving changes:
 
 ```cron
-0 23 * * * cd /home/fausto/apps/job-miner && /usr/bin/flock -n /home/fausto/apps/job-miner/generated_search_requests/grading.lock /home/fausto/apps/job-miner/.venv/bin/python -u -m job_miner.cli.grade --all --model qwen3.5-27b-16k:latest >> /home/fausto/apps/job-miner/generated_search_requests/grading-cron.log 2>&1
+45 23 * * * cd /home/fausto/apps/job-miner && /usr/bin/flock -n /home/fausto/apps/job-miner/generated_search_requests/grading.lock /home/fausto/apps/job-miner/.venv/bin/python -u -m job_miner.cli.grade --all --model qwen3.5-27b-16k:latest >> /home/fausto/apps/job-miner/generated_search_requests/grading-cron.log 2>&1
 ```
 
 Uses the installed local Ollama model `qwen3.5-27b-16k:latest`. Ollama must be
