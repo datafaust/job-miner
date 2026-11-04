@@ -17,6 +17,7 @@ Open `http://127.0.0.1:5055`. Use `--port` to change the port; Ctrl+C stops the 
 - Search titles/companies, filter source or work arrangement, and browse 25 jobs per page. Click a row for the saved posting, source details, and AI result.
 - **Posted** shows the source date or saved relative label (e.g. “Published 2 days ago,” which does not update). **Saved (UTC)** shows the collection date. **Resume Generated** shows ✓ after a successful render.
 - The trash icon asks for confirmation before hiding a job. Its database record and artifacts remain, so later searches still skip it. Hidden jobs are excluded from list counts; there is currently no restore control.
+- Use the star on a saved job or its detail page to mark it as a favorite. Select **Favorites only** in the **Favorites** filter; combine it with **Not applied** to see important jobs still awaiting an application. Click the filled star to remove the favorite.
 - On a job's detail page, **Application status** lets you choose an application date (today by default) and **Mark as applied**. You can update the date or **Mark as not applied** to undo it. Dates are saved locally and must be on or before today. The saved-jobs table shows the status/date, supports sorting by **Application**, and filters by **All jobs**, **Not applied**, or **Applied**. Application tracking does not require Ollama.
 - To create a resume, start Ollama, open a posting, choose an installed text-generation model and **Bullet mode**, then confirm. **No changes** (default) preserves bullets; **Light edits** adjusts phrasing; **Targeted edits** allows more restructuring while preserving facts.
 - The selection status page refreshes every five seconds and shows progress, errors, and **Cancel selection**. Stopping the frontend does not stop its separate selection worker. Recent attempts appear on the posting page.
@@ -211,3 +212,25 @@ tail -n 10 summary_attempts.jsonl
 - The organizer agent has no tools of its own; it summarizes the scraped posting supplied by the workflow. Its summary should be checked against the original text printed below it.
 - Automated tests cover job history and the workflow with mocked browser and model calls; a live search still depends on Idealist, Chrome, and Ollama.
 - The old `trip_planner_archive/trip.py` and `examples/crew_example.py` examples no longer set API keys in source. Supply `OPENAI_API_KEY` through your environment if you use those examples. The active job workflow uses Ollama and does not need that key.
+
+### Fill missing salaries from saved descriptions
+
+Run `.venv/bin/python -m job_tools.salary` to preview proposed salaries as JSON
+lines with job IDs and supporting source excerpts. Add `--apply` to save them.
+The command only fills blank salaries in existing fact rows and leaves company,
+application status, favorites, and other fields untouched. Repeating it is safe.
+Descriptions that cannot be read are reported; uncertain matches remain empty.
+
+The same text extractor runs automatically when board ingestion or a manually
+pasted posting has no salary. It preserves source wording, regional ranges,
+currencies, and pay periods without annualizing or using a model. Existing saved
+salaries take precedence during fact re-extraction. The preview/apply output can
+be redirected to a JSONL file for an audit trail. Backfill reads locally saved
+postings and does not fetch missing descriptions from the internet.
+
+Salary display on the job list and detail page uses a shared formatter: explicit
+New York/NYC ranges take priority, followed by US-wide ranges. Canadian and other
+identified foreign ranges are omitted. When US regional applicability is unclear,
+short region labels remain visible. Currency codes and pay periods are retained
+when stated; missing periods are not inferred or annualized. Salary sorting uses
+the displayed range. The original salary evidence remains unchanged in SQLite.

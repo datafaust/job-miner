@@ -1,5 +1,6 @@
 """Application reporting persists across requests and preserves list navigation."""
 from datetime import date, timedelta
+import re
 import sqlite3
 import unittest
 from unittest.mock import patch
@@ -13,6 +14,34 @@ from job_tools import job_history
 class ApplicationTests(unittest.TestCase):
     setUp = test_job_web.JobWebTests.setUp
     save_idealist = test_job_web.JobWebTests.save_idealist
+
+    def test_signing_key_survives_restarts(self):
+        path = self.root / 'web-secret'
+        first = web._confirmation_secret(path)
+        self.assertEqual(len(first), 32)
+        self.assertEqual(web._confirmation_secret(path), first)
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+    def test_application_from_long_open_url_posting(self):
+        url = 'https://accenture.com/us-en/careers/jobdetails'
+        path = self.root / 'accenture.txt'
+        path.write_text('Accenture\nData Engineer\nFull posting body.', encoding='utf-8')
+        job_history.record_processed(url, str(path))
+        key = job_history.job_key(url)
+        # Submit the actual rendered form, including its slash-containing action.
+        with patch('itsdangerous.timed.time.time', return_value=1800000000):
+            page = self.client.get(f'/jobs/{key}')
+        form = re.search(rb'<form method="post" action="([^"]+/application)">(.*?)</form>', page.data, re.S)
+        self.assertIsNotNone(form)
+        token = re.search(rb'name="token" value="([^"]+)"', form[2])[1].decode()
+        data = {'token': token, 'status': 'applied', 'applied_on': '2026-01-01'}
+        with patch('itsdangerous.timed.time.time', return_value=1800000000 + 7200):
+            response = self.client.post(form[1].decode(), data=data)
+        self.assertEqual(response.status_code, 302)
+        with job_history._database() as connection:
+            self.assertEqual(connection.execute('SELECT applied_on FROM processed_jobs WHERE job_key = ?', (key,)).fetchone()[0], '2026-01-01')
+        with patch('itsdangerous.timed.time.time', return_value=1800000000 + web.APPLICATION_TOKEN_MAX_AGE + 1):
+            self.assertEqual(self.client.post(form[1].decode(), data=data).status_code, 400)
 
     def report(self, key, status='applied', applied_on='2026-01-01', **context):
         token = web.confirmation_signer.dumps({'application_job': key})

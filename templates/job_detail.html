@@ -4,6 +4,7 @@
 <a class="d-inline-block mb-3" href="{{ back_url }}" data-back-to-jobs>← Back to jobs</a>
 <div class="d-flex justify-content-between align-items-start gap-4 mb-4">
   <div>
+    {% include 'job_favorite_form.html' %}
     <h1 class="h2 mb-1">{{ job.title }}</h1>
     <p class="text-secondary mb-0">{{ job.company or 'Company unavailable' }} · {{ job.source }}</p>
   </div>
@@ -72,7 +73,7 @@
         {% else %}
         <form method="post" action="{{ url_for('grade_start', job_id=job.job_key) }}" data-run-fit-grade data-confirm-message="Run a new fit grade for this job using {{ grade_model }}? This may take several minutes and will wait for any active grading and cooldown. A successful result will replace any existing grade.">
           <input type="hidden" name="token" value="{{ grade_token }}">
-          {% for name, value in [('application', application), ('availability', availability), ('q', q), ('source', source), ('remote', remote), ('page', page), ('sort', sort), ('order', order)] %}
+          {% for name, value in [('favorite', favorite), ('application', application), ('availability', availability), ('q', q), ('source', source), ('remote', remote), ('page', page), ('sort', sort), ('order', order)] %}
           <input type="hidden" name="{{ name }}" value="{{ value }}">
           {% endfor %}
           <button class="btn btn-primary w-100" type="submit" {% if not posting %}disabled{% endif %}>Run fit grade</button>
@@ -90,7 +91,7 @@
         {% endif %}
         <form method="post" action="{{ url_for('job_application', job_id=job.job_key) }}">
           <input type="hidden" name="token" value="{{ application_token }}">
-          {% for name, value in [('application', application), ('availability', availability), ('q', q), ('source', source), ('remote', remote), ('page', page), ('sort', sort), ('order', order)] %}
+          {% for name, value in [('favorite', favorite), ('application', application), ('availability', availability), ('q', q), ('source', source), ('remote', remote), ('page', page), ('sort', sort), ('order', order)] %}
           <input type="hidden" name="{{ name }}" value="{{ value }}">
           {% endfor %}
           <label class="form-label" for="applied-on">Application date</label>
@@ -107,6 +108,7 @@
         {% if model_error %}<div class="alert alert-warning small">{{ model_error }}</div>{% endif %}
         {% if not model_error and not models %}<div class="alert alert-warning small">No text-generation models are installed in Ollama.</div>{% endif %}
         <form method="post" action="{{ url_for('resume_confirm', job_id=job.job_key) }}">
+          <input type="hidden" name="favorite" value="{{ favorite }}">
           <input type="hidden" name="application" value="{{ application }}">
           <input type="hidden" name="availability" value="{{ availability }}">
           <input type="hidden" name="q" value="{{ q }}">
@@ -157,7 +159,7 @@
           <dd>
             <form method="post" action="{{ url_for('job_company', job_id=job.job_key) }}">
               <input type="hidden" name="token" value="{{ company_token }}">
-              {% for name, value in [('application', application), ('availability', availability), ('q', q), ('source', source), ('remote', remote), ('page', page), ('sort', sort), ('order', order)] %}
+              {% for name, value in [('favorite', favorite), ('application', application), ('availability', availability), ('q', q), ('source', source), ('remote', remote), ('page', page), ('sort', sort), ('order', order)] %}
               <input type="hidden" name="{{ name }}" value="{{ value }}">
               {% endfor %}
               <input class="form-control mb-2" id="company-name" name="company" value="{{ job.company or '' }}" maxlength="300" required>
@@ -167,7 +169,7 @@
           <dt>Source</dt><dd>{{ job.source }}</dd>
           <dt>Location</dt><dd>{{ job.location or '—' }}</dd>
           <dt>Work arrangement</dt><dd>{{ job.remote_status | replace('_', ' ') | title }}</dd>
-          <dt>Salary</dt><dd>{{ job.salary_range or '—' }}</dd>
+          <dt>Salary</dt><dd>{{ job.salary_range | salary_display }}</dd>
           <dt>Posted</dt><dd>{{ job.posted_at or job.posted_text or '—' }}</dd>
           <dt>Saved (UTC)</dt><dd>{{ job.processed_at }}</dd>
           <dt>Job ID</dt><dd class="text-break small">{{ job.job_key }}</dd>

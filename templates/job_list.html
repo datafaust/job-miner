@@ -50,7 +50,7 @@
 
 {% if added_job %}<div class="alert alert-success" role="status">Saved <a href="{{ url_for('job_detail', job_id=added_job.job_key) }}">{{ added_job.title }}</a>.</div>{% endif %}
 
-<form method="get" action="{{ url_for('job_list') }}" class="card border-0 shadow-sm mb-4" data-job-list-url="{{ url_for('job_list', availability=availability, application=application, q=q, source=source, remote=remote, page=page, sort=sort, order=order) }}">
+<form method="get" action="{{ url_for('job_list') }}" class="card border-0 shadow-sm mb-4" data-job-list-url="{{ url_for('job_list', availability=availability, favorite=favorite, application=application, q=q, source=source, remote=remote, page=page, sort=sort, order=order) }}">
   <input type="hidden" name="sort" value="{{ sort }}">
   <input type="hidden" name="order" value="{{ order }}">
   <div class="card-body row g-3 align-items-end">
@@ -91,6 +91,13 @@
         {% endfor %}
       </select>
     </div>
+    <div class="col-md-2">
+      <label class="form-label" for="favorite">Favorites</label>
+      <select class="form-select" id="favorite" name="favorite">
+        <option value="">All jobs</option>
+        <option value="1" {% if favorite == '1' %}selected{% endif %}>Favorites only</option>
+      </select>
+    </div>
     <div class="col-md-2 d-flex gap-2">
       <button class="btn btn-primary flex-grow-1" type="submit">Filter</button>
       <a class="btn btn-outline-secondary" href="{{ url_for('job_list') }}">Clear</a>
@@ -109,28 +116,31 @@
       <thead><tr>
         {% for key, label in [('title', 'Job'), ('company', 'Company'), ('source', 'Source'), ('location', 'Location'), ('remote', 'Work arrangement'), ('salary', 'Salary'), ('posted', 'Date posted'), ('saved', 'Saved (UTC)'), ('fit', 'Fit'), ('resume', 'Resume Generated'), ('applied', 'Application')] %}
         <th scope="col" {% if sort == key %}aria-sort="{{ 'ascending' if order == 'asc' else 'descending' }}"{% endif %}>
-          <a class="sort-link" href="{{ url_for('job_list', availability=availability, application=application, q=q, source=source, remote=remote, sort=key, order=('desc' if order == 'asc' else 'asc') if sort == key else ('desc' if key in ('posted', 'saved', 'fit', 'applied') else 'asc')) }}">{{ label }}<span class="sort-indicator" aria-hidden="true">{{ ('▲' if order == 'asc' else '▼') if sort == key else '↕' }}</span></a>
+          <a class="sort-link" href="{{ url_for('job_list', availability=availability, favorite=favorite, application=application, q=q, source=source, remote=remote, sort=key, order=('desc' if order == 'asc' else 'asc') if sort == key else ('desc' if key in ('posted', 'saved', 'fit', 'applied') else 'asc')) }}">{{ label }}<span class="sort-indicator" aria-hidden="true">{{ ('▲' if order == 'asc' else '▼') if sort == key else '↕' }}</span></a>
         </th>
         {% endfor %}
+        <th scope="col">Favorite</th>
         <th scope="col"><span class="visually-hidden">Actions</span></th>
       </tr></thead>
       <tbody>
       {% for job in jobs %}
-      <tr data-href="{{ url_for('job_detail', job_id=job.job_key, availability=availability, application=application, q=q, source=source, remote=remote, page=page, sort=sort, order=order) }}">
-        <td class="job-title"><a href="{{ url_for('job_detail', job_id=job.job_key, availability=availability, application=application, q=q, source=source, remote=remote, page=page, sort=sort, order=order) }}">{{ job.title }}</a><div class="small text-secondary" title="{{ job.availability_evidence or 'No availability check yet' }}{% if job.checked_at %} · Checked {{ job.checked_at }} UTC{% endif %}">{{ job.availability_label }}</div></td>
+      <tr data-href="{{ url_for('job_detail', job_id=job.job_key, availability=availability, favorite=favorite, application=application, q=q, source=source, remote=remote, page=page, sort=sort, order=order) }}">
+        <td class="job-title"><a href="{{ url_for('job_detail', job_id=job.job_key, availability=availability, favorite=favorite, application=application, q=q, source=source, remote=remote, page=page, sort=sort, order=order) }}">{{ job.title }}</a><div class="small text-secondary" title="{{ job.availability_evidence or 'No availability check yet' }}{% if job.checked_at %} · Checked {{ job.checked_at }} UTC{% endif %}">{{ job.availability_label }}</div></td>
         <td>{{ job.company or '—' }}</td>
         <td>{{ job.source }}</td>
         <td>{{ job.location or '—' }}</td>
         <td>{{ job.remote_status | replace('_', ' ') | title }}</td>
-        <td>{{ job.salary_range or '—' }}</td>
+        <td>{{ job.salary_range | salary_display }}</td>
         <td class="text-nowrap">{{ job.posted_at[:10] if job.posted_at else (job.posted_text or '—') }}</td>
         <td class="text-nowrap">{{ job.processed_at[:10] }}</td>
         <td>{% if job.fit_score is not none %}<span class="badge {{ {'strong': 'text-bg-success', 'possible': 'text-bg-warning', 'weak': 'text-bg-secondary'}[job.fit_tier] }}">{{ job.fit_tier | title }} · {{ job.fit_score }}</span>{% else %}<span class="text-secondary">—</span>{% endif %}</td>
         <td class="text-center">{% if job.job_key in resume_job_ids %}<span class="text-success fs-3 fw-bold" role="img" aria-label="Resume generated">✓</span>{% endif %}</td>
         <td class="text-nowrap">{% if job.applied_on %}<span class="badge text-bg-success">Applied</span><div class="small text-secondary">{{ job.applied_on }}</div>{% else %}<span class="text-secondary">Not applied</span>{% endif %}</td>
+        <td>{% set favorite_token = favorite_tokens[job.job_key] %}{% set return_to = 'list' %}{% include 'job_favorite_form.html' %}</td>
         <td>
           <form method="post" action="{{ url_for('job_hide', job_id=job.job_key) }}" data-hide-job>
             <input type="hidden" name="token" value="{{ hide_tokens[job.job_key] }}">
+            <input type="hidden" name="favorite" value="{{ favorite }}">
             <input type="hidden" name="application" value="{{ application }}">
             <input type="hidden" name="availability" value="{{ availability }}">
             <input type="hidden" name="q" value="{{ q }}">
@@ -165,9 +175,9 @@
 {% if page_count > 1 %}
 <nav class="mt-4" aria-label="Job list pages">
   <ul class="pagination justify-content-end">
-    <li class="page-item {% if page == 1 %}disabled{% endif %}"><a class="page-link" href="{{ url_for('job_list', availability=availability, application=application, q=q, source=source, remote=remote, page=page-1, sort=sort, order=order) }}">Previous</a></li>
+    <li class="page-item {% if page == 1 %}disabled{% endif %}"><a class="page-link" href="{{ url_for('job_list', availability=availability, favorite=favorite, application=application, q=q, source=source, remote=remote, page=page-1, sort=sort, order=order) }}">Previous</a></li>
     <li class="page-item disabled"><span class="page-link">Page {{ page }} of {{ page_count }}</span></li>
-    <li class="page-item {% if page == page_count %}disabled{% endif %}"><a class="page-link" href="{{ url_for('job_list', availability=availability, application=application, q=q, source=source, remote=remote, page=page+1, sort=sort, order=order) }}">Next</a></li>
+    <li class="page-item {% if page == page_count %}disabled{% endif %}"><a class="page-link" href="{{ url_for('job_list', availability=availability, favorite=favorite, application=application, q=q, source=source, remote=remote, page=page+1, sort=sort, order=order) }}">Next</a></li>
   </ul>
 </nav>
 {% endif %}

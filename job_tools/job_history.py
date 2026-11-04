@@ -151,6 +151,8 @@ def _database():
             columns = {row[1] for row in connection.execute("PRAGMA table_info(processed_jobs)")}
             if "hidden_at" not in columns:
                 connection.execute("ALTER TABLE processed_jobs ADD COLUMN hidden_at TEXT")
+            if "is_favorite" not in columns:
+                connection.execute("ALTER TABLE processed_jobs ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0")
             if "applied_on" not in columns:
                 connection.execute("ALTER TABLE processed_jobs ADD COLUMN applied_on TEXT")
             connection.execute(

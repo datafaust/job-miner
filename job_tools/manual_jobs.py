@@ -11,11 +11,7 @@ from job_miner.paths import PROJECT_DIR
 
 JOBS_DIR = PROJECT_DIR / "jobs"
 FIELDS = ("job_title", "company", "salary_range", "posted_at", "posted_text", "remote_status", "location")
-SALARY = re.compile(
-    r"(?:USD\s*)?\$\s*\d[\d,]*(?:\.\d+)?\s*(?:-|–|—|to)\s*"
-    r"(?:USD\s*)?\$\s*\d[\d,]*(?:\.\d+)?(?:\s*/\s*(?:year|yr|hour|hr|month))?",
-    re.I,
-)
+
 
 
 def _label(lines, *names):
@@ -52,8 +48,9 @@ def parse_posting(text):
     location = _optional_fact(_label(lines[:25], "location", "job location"))
     salary = _optional_fact(_label(lines[:30], "salary", "compensation", "pay range"))
     if not salary:
-        matches = {match.group().strip() for match in SALARY.finditer(text)}
-        salary = next(iter(matches)) if len(matches) == 1 else None
+        from job_tools.salary import extract_salary
+        result = extract_salary(text)
+        salary = result["salary_range"] if result else None
     posted = _optional_fact(_label(lines[:30], "date posted", "posted", "publication date", "published"))
     posted_at = posted if posted and re.fullmatch(r"\d{4}-\d{2}-\d{2}(?:[T ][\d:.+-]+Z?)?", posted) else None
     posted_text = posted if posted and not posted_at else None

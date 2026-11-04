@@ -1,0 +1,9 @@
+<form method="post" action="{{ url_for('job_favorite', job_id=job.job_key) }}" class="d-inline-block mb-2">
+  <input type="hidden" name="token" value="{{ favorite_token }}">
+  <input type="hidden" name="is_favorite" value="{{ 0 if job.is_favorite else 1 }}">
+  <input type="hidden" name="return_to" value="{{ return_to or 'detail' }}">
+  {% for name, value in [('favorite', favorite), ('application', application), ('availability', availability), ('q', q), ('source', source), ('remote', remote), ('page', page), ('sort', sort), ('order', order)] %}
+  <input type="hidden" name="{{ name }}" value="{{ value }}">
+  {% endfor %}
+  <button class="btn btn-sm {{ 'btn-warning' if job.is_favorite else 'btn-outline-secondary' }}" type="submit" aria-pressed="{{ 'true' if job.is_favorite else 'false' }}" aria-label="{{ 'Remove favorite' if job.is_favorite else 'Favorite job' }}: {{ job.title }}" title="{{ 'Remove favorite' if job.is_favorite else 'Favorite job' }}"><span aria-hidden="true">{{ '★' if job.is_favorite else '☆' }}</span><span class="visually-hidden"> Favorite</span></button>
+</form>

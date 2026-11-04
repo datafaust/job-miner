@@ -1,5 +1,6 @@
 # Local secrets and configuration
 .env
+.job_web_secret
 .env.*
 !.env.example
 

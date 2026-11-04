@@ -203,6 +203,16 @@ def extract_and_save(url, detail_file):
     else:
         raise ValueError(f"Unsupported job source file: {path}")
 
+    if not (facts.get("salary_range") or "").strip():
+        from job_tools.resume_inputs import load_posting
+        from job_tools.salary import extract_salary
+        try:
+            salary = extract_salary(load_posting(path)["posting_text"])
+        except (OSError, ValueError, KeyError, UnicodeError):
+            salary = None
+        if salary:
+            facts["salary_range"] = salary["salary_range"]
+
     with job_history._database() as connection:
         connection.execute(
             """INSERT INTO prospective_jobs
@@ -212,7 +222,7 @@ def extract_and_save(url, detail_file):
                ON CONFLICT(job_key) DO UPDATE SET
                    job_title = excluded.job_title,
                    company = excluded.company,
-                   salary_range = excluded.salary_range,
+                   salary_range = COALESCE(NULLIF(TRIM(prospective_jobs.salary_range), ''), excluded.salary_range),
                    posted_at = excluded.posted_at,
                    posted_text = excluded.posted_text,
                    remote_status = excluded.remote_status,

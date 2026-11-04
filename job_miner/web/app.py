@@ -27,14 +27,34 @@ from job_tools import manual_jobs
 from job_tools import grade_web_tasks as grading
 from job_tools import resume_web_tasks as tasks
 from job_tools.resume_inputs import load_saved_posting
+from job_tools.salary import format_salary
 from job_miner.resumes.render import produce
 from job_miner.paths import PROJECT_DIR
 
 
 PAGE_SIZE = 25
+APPLICATION_TOKEN_MAX_AGE = 7 * 24 * 60 * 60
+
+
+def _confirmation_secret(path):
+    """Keep open forms valid across local server restarts and workers."""
+    descriptor = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    with os.fdopen(descriptor, "r+b") as key_file:
+        fcntl.flock(key_file, fcntl.LOCK_EX)
+        secret = key_file.read()
+        if not secret:
+            secret = secrets.token_bytes(32)
+            key_file.write(secret)
+            key_file.flush()
+        return secret
+
+
 app = Flask(__name__, template_folder=str(PROJECT_DIR / "templates"),
             static_folder=str(PROJECT_DIR / "static"))
-confirmation_signer = URLSafeTimedSerializer(secrets.token_bytes(32), salt="resume-selection")
+app.jinja_env.filters["salary_display"] = format_salary
+
+confirmation_signer = URLSafeTimedSerializer(
+    _confirmation_secret(PROJECT_DIR / ".job_web_secret"), salt="resume-selection")
 
 
 def _available_models():
@@ -70,7 +90,7 @@ def _job(job_id):
 def _detail_url(job_id, values):
     return url_for(
         "job_detail", job_id=job_id,
-        application=values.get("application", ""), availability=values.get("availability", ""),
+        favorite=values.get("favorite", ""), application=values.get("application", ""), availability=values.get("availability", ""),
         q=values.get("q", ""), source=values.get("source", ""),
         remote=values.get("remote", ""), page=values.get("page", "1"),
         sort=values.get("sort", ""), order=values.get("order", ""),
@@ -96,7 +116,7 @@ def _saved_jobs():
     with job_history._database() as connection:
         connection.row_factory = sqlite3.Row
         rows = connection.execute(
-            """SELECT h.job_key, h.url, h.processed_at, h.hidden_at, h.applied_on,
+            """SELECT h.job_key, h.url, h.processed_at, h.hidden_at, h.applied_on, h.is_favorite,
                       COALESCE(a.availability, 'unchecked') AS availability,
                       a.checked_at, a.last_seen_open, a.evidence AS availability_evidence,
                       p.job_title, p.company, p.location, p.remote_status,
@@ -174,7 +194,7 @@ def _sort_jobs(jobs, sort, order, resume_job_ids):
         key = lambda job: _timestamp(job[field])
     elif sort == "salary":
         def key(job):
-            match = re.search(r"\$?\s*(\d[\d,]*(?:\.\d+)?)\s*([kK]?)", job["salary_range"] or "")
+            match = re.search(r"\$?\s*(\d[\d,]*(?:\.\d+)?)\s*([kK]?)", format_salary(job["salary_range"]))
             return float(match[1].replace(",", "")) * (1000 if match[2] else 1) if match else None
     else:
         field = "remote_status" if sort == "remote" else sort
@@ -196,6 +216,7 @@ def job_list(add_error=None, add_url="", add_posting_text=""):
     application = request.args.get("application", "")
     if application not in {"applied", "unapplied"}:
         application = ""
+    favorite = "1" if request.args.get("favorite") == "1" else ""
     availability = request.args.get("availability", "")
     if availability not in {"hide_closed", "open", "possibly_closed", "closed", "unknown", "unchecked"}:
         availability = ""
@@ -211,6 +232,7 @@ def job_list(add_error=None, add_url="", add_posting_text=""):
             f"{job['title']} {job['company'] or ''}".casefold())
         and (not source or job["source"] == source)
         and (not remote or job["remote_status"] == remote)
+        and (not favorite or job["is_favorite"])
         and (not application or (bool(job["applied_on"]) == (application == "applied")))
         and (not availability or
              (availability == "hide_closed" and job["availability"] != "closed") or
@@ -224,9 +246,11 @@ def job_list(add_error=None, add_url="", add_posting_text=""):
     visible_jobs = filtered[start:start + PAGE_SIZE]
     return render_template(
         "job_list.html", jobs=visible_jobs, last_run=last_run, search_running=search_running,
+        favorite_tokens={job["job_key"]: confirmation_signer.dumps({"favorite_job": job["job_key"]})
+                         for job in visible_jobs},
         hide_tokens={job["job_key"]: confirmation_signer.dumps({"hide_job": job["job_key"]})
                      for job in visible_jobs},
-        total=len(filtered), saved_total=len(all_jobs), sources=sources, availability=availability, application=application,
+        total=len(filtered), saved_total=len(all_jobs), sources=sources, availability=availability, application=application, favorite=favorite,
         q=query, source=source, remote=remote, page=page, sort=sort, order=order,
         page_count=page_count,
         resume_job_ids=resume_job_ids,
@@ -328,7 +352,7 @@ def job_hide(job_id):
         if result.rowcount == 0:
             abort(404)
     return redirect(url_for(
-        "job_list", application=request.form.get("application", ""), availability=request.form.get("availability", ""), q=request.form.get("q", ""), source=request.form.get("source", ""),
+        "job_list", favorite=request.form.get("favorite", ""), application=request.form.get("application", ""), availability=request.form.get("availability", ""), q=request.form.get("q", ""), source=request.form.get("source", ""),
         remote=request.form.get("remote", ""), page=request.form.get("page", "1"),
         sort=request.form.get("sort", ""), order=request.form.get("order", ""),
     ))
@@ -337,7 +361,7 @@ def job_hide(job_id):
 @app.post("/jobs/<path:job_id>/application")
 def job_application(job_id):
     try:
-        data = confirmation_signer.loads(request.form.get("token", ""), max_age=3600)
+        data = confirmation_signer.loads(request.form.get("token", ""), max_age=APPLICATION_TOKEN_MAX_AGE)
         if data.get("application_job") != job_id:
             abort(400)
     except (BadSignature, SignatureExpired):
@@ -360,6 +384,30 @@ def job_application(job_id):
                                     (applied_on, job_id))
         if result.rowcount == 0:
             abort(404)
+    return redirect(_detail_url(job_id, request.form))
+
+
+@app.post("/jobs/<path:job_id>/favorite")
+def job_favorite(job_id):
+    try:
+        data = confirmation_signer.loads(request.form.get("token", ""), max_age=3600)
+        if data.get("favorite_job") != job_id:
+            abort(400)
+    except (BadSignature, SignatureExpired):
+        abort(400, "Reload the posting and try again.")
+    value = request.form.get("is_favorite")
+    if value not in {"0", "1"}:
+        abort(400)
+    with job_history._database() as connection:
+        result = connection.execute("UPDATE processed_jobs SET is_favorite = ? WHERE job_key = ?",
+                                    (int(value), job_id))
+        if result.rowcount == 0:
+            abort(404)
+    if request.form.get("return_to") == "list":
+        return redirect(url_for("job_list", **{
+            name: request.form.get(name, "") for name in
+            ("favorite", "application", "availability", "q", "source", "remote", "page", "sort", "order")
+        }))
     return redirect(_detail_url(job_id, request.form))
 
 
@@ -400,7 +448,7 @@ def job_detail(job_id):
     else:
         posting_error = None
     query, source, remote, page, sort, order = _list_state()
-    back_url = url_for("job_list", application=request.args.get("application", ""), availability=request.args.get("availability", ""), q=query, source=source, remote=remote, page=page, sort=sort, order=order)
+    back_url = url_for("job_list", favorite=request.args.get("favorite", ""), application=request.args.get("application", ""), availability=request.args.get("availability", ""), q=query, source=source, remote=remote, page=page, sort=sort, order=order)
     models, model_error = _available_models()
     return render_template(
         "job_detail.html", job=job, posting=posting,
@@ -409,8 +457,9 @@ def job_detail(job_id):
         recent_attempts=tasks.recent_for_job(job_id),
         render_token=confirmation_signer.dumps({"render_job": job_id}),
         application_token=confirmation_signer.dumps({"application_job": job_id}),
+        favorite_token=confirmation_signer.dumps({"favorite_job": job_id}),
         company_token=confirmation_signer.dumps({"company_job": job_id}),
-        application=request.args.get("application", ""), availability=request.args.get("availability", ""),
+        favorite=request.args.get("favorite", ""), application=request.args.get("application", ""), availability=request.args.get("availability", ""),
         today=date.today().isoformat(),
         grade_model=grading.DEFAULT_MODEL, grade_task=grading.latest_for_job(job_id),
         grade_token=confirmation_signer.dumps({"grade_job": job_id, "task_id": str(uuid4())}),
